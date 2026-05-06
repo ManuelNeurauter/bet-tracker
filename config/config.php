@@ -5,11 +5,12 @@
  */
 
 // Database Configuration
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'bet_tracker_db');
-define('DB_PORT', 3306);
+// Load from environment variables if available (Docker), otherwise use defaults
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_USER', getenv('DB_USER') ?: 'bettracker');
+define('DB_PASS', getenv('DB_PASS') ?: 'bettracker_password');
+define('DB_NAME', getenv('DB_NAME') ?: 'bet_tracker_db');
+define('DB_PORT', (int)(getenv('DB_PORT') ?: 3306));
 
 // Application Settings
 define('APP_NAME', 'BetLedger');
