@@ -15,7 +15,7 @@ class SettingsController {
         $user = new User();
         $userData = $user->findById($userId);
         
-        include 'src/views/settings.php';
+        include __DIR__ . '/../views/settings.php';
     }
     
     /**
@@ -107,4 +107,4 @@ class SettingsController {
     }
 }
 
-?>
+

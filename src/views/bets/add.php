@@ -1,4 +1,4 @@
 <?php 
-$content_view = 'src/views/bets/add-content.php';
-include 'src/views/layout.php';
+$content_view = __DIR__ . '/add-content.php';
+include __DIR__ . '/../layout.php';
 ?>

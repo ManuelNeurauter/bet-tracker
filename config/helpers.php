@@ -331,4 +331,4 @@ function hasFlash($type) {
     return isset($_SESSION['flash'][$type]);
 }
 
-?>
+

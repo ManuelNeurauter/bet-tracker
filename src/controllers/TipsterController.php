@@ -28,7 +28,7 @@ class TipsterController {
             }
         }
         
-        include 'src/views/tipsters/list.php';
+        include __DIR__ . '/../views/tipsters/list.php';
     }
     
     /**
@@ -172,4 +172,4 @@ class TipsterController {
     }
 }
 
-?>
+

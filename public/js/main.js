@@ -1,6 +1,24 @@
+// Set active nav item based on current URL
+function setActiveNavItem() {
+    const currentPath = window.location.pathname;
+    const navItems = document.querySelectorAll('.nav-item');
+    
+    navItems.forEach(item => {
+        item.classList.remove('active');
+        const href = item.getAttribute('href');
+        
+        // Match logic for navigation
+        if (currentPath === '/' && href === '/') {
+            item.classList.add('active');
+        } else if (currentPath !== '/' && href !== '/' && currentPath.startsWith(href)) {
+            item.classList.add('active');
+        }
+    });
+}
 /* BetLedger - Main JavaScript */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener(`DOMContentLoaded`, function() {
+    setActiveNavItem();
     initializeEventListeners();
     initializeFormValidation();
 });
@@ -199,3 +217,5 @@ document.querySelectorAll('[data-tooltip]').forEach(element => {
         if (tooltip) tooltip.remove();
     });
 });
+
+

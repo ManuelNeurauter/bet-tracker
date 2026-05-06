@@ -10,8 +10,8 @@
         </div>
         
         <div class="form-group">
-            <label for="source_url">Source URL</label>
-            <input type="url" id="source_url" name="source_url">
+            <label for="source_url">Source URL / Contact Info</label>
+            <input type="text" id="source_url" name="source_url" placeholder="e.g., website, phone, Twitter handle, or leave blank">
         </div>
         
         <div class="form-group">

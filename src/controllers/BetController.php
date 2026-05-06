@@ -22,7 +22,7 @@ class BetController {
         $tags = $tagModel->getByUser($userId);
         $tipsters = $tipsterModel->getByUser($userId);
         
-        include 'src/views/bets/add.php';
+        include __DIR__ . '/../views/bets/add.php';
     }
     
     /**
@@ -114,7 +114,7 @@ class BetController {
         $tags = $tagModel->getByBet($betId);
         $tipsters = $tipsterModel->getByBet($betId);
         
-        include 'src/views/bets/view.php';
+        include __DIR__ . '/../views/bets/view.php';
     }
     
     /**
@@ -291,4 +291,4 @@ class BetController {
     }
 }
 
-?>
+
