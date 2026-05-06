@@ -5,28 +5,29 @@
  */
 
 // Start session and load configuration
+require_once '../config/config.php';
+require_once '../config/Database.php';
+require_once '../config/helpers.php';
+
 startSession();
-require_once 'config/config.php';
-require_once 'config/Database.php';
-require_once 'config/helpers.php';
 
 // Load Models
-require_once 'src/models/User.php';
-require_once 'src/models/Bet.php';
-require_once 'src/models/Bookmaker.php';
-require_once 'src/models/Tag.php';
-require_once 'src/models/Tipster.php';
-require_once 'src/models/Sport.php';
+require_once '../src/models/User.php';
+require_once '../src/models/Bet.php';
+require_once '../src/models/Bookmaker.php';
+require_once '../src/models/Tag.php';
+require_once '../src/models/Tipster.php';
+require_once '../src/models/Sport.php';
 
 // Load Controllers
-require_once 'src/controllers/AuthController.php';
-require_once 'src/controllers/DashboardController.php';
-require_once 'src/controllers/BetController.php';
-require_once 'src/controllers/StatisticsController.php';
-require_once 'src/controllers/BookmakerController.php';
-require_once 'src/controllers/TagController.php';
-require_once 'src/controllers/TipsterController.php';
-require_once 'src/controllers/SettingsController.php';
+require_once '../src/controllers/AuthController.php';
+require_once '../src/controllers/DashboardController.php';
+require_once '../src/controllers/BetController.php';
+require_once '../src/controllers/StatisticsController.php';
+require_once '../src/controllers/BookmakerController.php';
+require_once '../src/controllers/TagController.php';
+require_once '../src/controllers/TipsterController.php';
+require_once '../src/controllers/SettingsController.php';
 
 // Parse URL
 $request_uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -210,13 +211,13 @@ switch ($segments[0] ?? '') {
     
     // API Routes for AJAX requests
     case 'api':
-        require_once 'src/api.php';
+        require_once '../src/api.php';
         break;
     
     // 404
     default:
         http_response_code(404);
-        include 'src/views/404.php';
+        include '../src/views/404.php';
         break;
 }
 ?>

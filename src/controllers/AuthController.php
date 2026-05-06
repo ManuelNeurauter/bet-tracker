@@ -12,7 +12,7 @@ class AuthController {
         if (isLoggedIn()) {
             redirect('/');
         }
-        include 'src/views/auth/login.php';
+        include __DIR__ . '/../views/auth/login.php';
     }
     
     /**
@@ -60,7 +60,7 @@ class AuthController {
         if (isLoggedIn()) {
             redirect('/');
         }
-        include 'src/views/auth/register.php';
+        include __DIR__ . '/../views/auth/register.php';
     }
     
     /**

@@ -36,7 +36,7 @@ class TipsterController {
      */
     public static function showAdd() {
         requireLogin();
-        include 'src/views/tipsters/add.php';
+        include __DIR__ . '/../views/tipsters/add.php';
     }
     
     /**
@@ -90,7 +90,7 @@ class TipsterController {
             die('Tipster not found');
         }
         
-        include 'src/views/tipsters/edit.php';
+        include __DIR__ . '/../views/tipsters/edit.php';
     }
     
     /**

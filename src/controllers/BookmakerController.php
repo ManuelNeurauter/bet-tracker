@@ -37,7 +37,7 @@ class BookmakerController {
      */
     public static function showAdd() {
         requireLogin();
-        include 'src/views/bookmakers/add.php';
+        include __DIR__ . '/../views/bookmakers/add.php';
     }
     
     /**
@@ -96,7 +96,7 @@ class BookmakerController {
             die('Bookmaker not found');
         }
         
-        include 'src/views/bookmakers/edit.php';
+        include __DIR__ . '/../views/bookmakers/edit.php';
     }
     
     /**

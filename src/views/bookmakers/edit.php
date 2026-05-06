@@ -1,4 +1,4 @@
 <?php 
-$content_view = 'src/views/bookmakers/edit-content.php';
-include 'src/views/layout.php';
+<?php $content_view = __DIR__ . '/edit-content.php';
+include __DIR__ . '/../layout.php';
 ?>

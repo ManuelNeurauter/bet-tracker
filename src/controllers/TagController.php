@@ -23,7 +23,7 @@ class TagController {
      */
     public static function showAdd() {
         requireLogin();
-        include 'src/views/tags/add.php';
+        include __DIR__ . '/../views/tags/add.php';
     }
     
     /**
@@ -76,7 +76,7 @@ class TagController {
             die('Tag not found');
         }
         
-        include 'src/views/tags/edit.php';
+        include __DIR__ . '/../views/tags/edit.php';
     }
     
     /**

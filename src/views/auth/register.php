@@ -1,4 +1,4 @@
-<?php $content_view = 'src/views/auth/register-content.php'; 
+<?php $content_view = __DIR__ . '/register-content.php';
 startSession();
-include 'src/views/layout.php';
+include __DIR__ . '/../layout.php';
 ?>

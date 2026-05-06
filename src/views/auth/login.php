@@ -1,5 +1,5 @@
-<?php $content_view = 'src/views/auth/login-content.php'; 
+<?php $content_view = __DIR__ . '/login-content.php'; 
 // Check for flash messages in session
 startSession();
-include 'src/views/layout.php';
+include __DIR__ . '/../layout.php';
 ?>

@@ -293,12 +293,12 @@ function getPaginationPages($currentPage, $totalPages, $maxPages = 7) {
  */
 function startSession() {
     if (session_status() === PHP_SESSION_NONE) {
-        session_start();
         session_set_cookie_params([
             'lifetime' => SESSION_LIFETIME,
             'path' => '/',
             'samesite' => 'Lax',
         ]);
+        session_start();
     }
 }
 

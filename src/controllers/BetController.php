@@ -144,7 +144,7 @@ class BetController {
         $selectedTags = $tagModel->getByBet($betId);
         $selectedTipsters = $tipsterModel->getByBet($betId);
         
-        include 'src/views/bets/edit.php';
+        include __DIR__ . '/../views/bets/edit.php';
     }
     
     /**
@@ -253,7 +253,7 @@ class BetController {
         $bookmakers = $bookmakerModel->getByUser($userId);
         $sports = $sportModel->getAll();
         
-        include 'src/views/bets/list.php';
+        include __DIR__ . '/../views/bets/list.php';
     }
     
     /**

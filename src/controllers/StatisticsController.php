@@ -35,7 +35,7 @@ class StatisticsController {
         
         $userData = getCurrentUser();
         
-        include 'src/views/statistics.php';
+        include __DIR__ . '/../views/statistics.php';
     }
 }
 

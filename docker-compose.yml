@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: mysql:8.0
@@ -18,13 +16,14 @@ services:
       - bet-tracker-network
 
   web:
-    image: php:8.0-apache
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: bet-tracker-web
     ports:
       - "8000:80"
     volumes:
       - ./:/var/www/html
-      - ./docker/apache.conf:/etc/apache2/sites-available/000-default.conf
     environment:
       DB_HOST: db
       DB_USER: bettracker

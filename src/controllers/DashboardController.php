@@ -35,7 +35,7 @@ class DashboardController {
         $profitBySport = $bet->getProfitByGroup($userId, 'sport_id');
         $profitByBookmaker = $bet->getProfitByGroup($userId, 'bookmaker_id');
         
-        include 'src/views/dashboard.php';
+        include __DIR__ . '/../views/dashboard.php';
     }
 }
 
