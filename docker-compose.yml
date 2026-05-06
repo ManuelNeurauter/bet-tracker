@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: bet-tracker-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: bet_tracker_db
+      MYSQL_USER: bettracker
+      MYSQL_PASSWORD: bettracker_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - mysql_data:/var/lib/mysql
+    networks:
+      - bet-tracker-network
+
+  web:
+    image: php:8.0-apache
+    container_name: bet-tracker-web
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/apache.conf:/etc/apache2/sites-available/000-default.conf
+    environment:
+      DB_HOST: db
+      DB_USER: bettracker
+      DB_PASS: bettracker_password
+      DB_NAME: bet_tracker_db
+    depends_on:
+      - db
+    networks:
+      - bet-tracker-network
+
+volumes:
+  mysql_data:
+
+networks:
+  bet-tracker-network:
+    driver: bridge

@@ -1,0 +1,75 @@
+# BetLedger .gitignore
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+.AppleDouble
+.LSOverride
+.vscode-server/
+
+# OS files
+Thumbs.db
+desktop.ini
+.directory
+
+# PHP
+*.php~
+*~
+
+# Logs
+logs/
+*.log
+
+# Uploads
+uploads/
+tmp/
+temp/
+
+# Database backups
+*.sql.bak
+*.sql.gz
+database/backups/
+
+# Composer
+vendor/
+composer.lock
+
+# Node (if using build tools)
+node_modules/
+package-lock.json
+npm-debug.log
+
+# Build artifacts
+dist/
+build/
+
+# Configuration
+config/database-local.php
+
+# Test files
+tests/fixtures/
+.phpunit.result.cache
+
+# Docker volumes
+docker/mysql_data/
+mysql_data/
+
+# Session files
+sessions/
+*.sess
+
+# Cache
+cache/
+.cache/
+
+# Dependencies
+lib/
+bin/
