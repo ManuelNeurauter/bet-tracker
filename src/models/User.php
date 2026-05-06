@@ -136,16 +136,18 @@ class User {
     }
     
     /**
-     * Get current bankroll
+     * Get current bankroll - sum of all bookmaker balances
      */
     public function getCurrentBankroll($userId) {
-        $stats = $this->getStatistics($userId);
-        $user = $this->findById($userId);
+        $stmt = $this->db->prepare('
+            SELECT SUM(account_balance + bonus_balance) as total_balance
+            FROM bookmakers
+            WHERE user_id = ? AND is_archived = 0
+        ');
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch();
         
-        $startingBankroll = $user['bankroll_start'] ?? 0;
-        $totalProfit = $stats['total_profit'] ?? 0;
-        
-        return $startingBankroll + $totalProfit;
+        return $result['total_balance'] ?? 0;
     }
 }
 
