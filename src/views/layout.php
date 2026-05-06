@@ -32,8 +32,8 @@
                     </div>
                     <div class="user-menu">
                         <span class="username"><?php echo sanitize(getCurrentUser()['username']); ?></span>
-                        <a href="/settings" class="icon-link" title="Settings">⚙️</a>
-                        <a href="/logout" class="icon-link" title="Logout">🚪</a>
+                        <a href="/settings" class="text-link" title="Settings">Settings</a>
+                        <a href="/logout" class="text-link" title="Logout">Logout</a>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -46,23 +46,23 @@
             <!-- Sidebar Navigation -->
             <aside class="sidebar">
                 <nav class="nav-menu">
-                    <a href="/" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], '/') === 0 && !isset($segments[0])) ? 'active' : ''; ?>">
-                        📊 Dashboard
+                    <a href="/" class="nav-item">
+                        Dashboard
                     </a>
-                    <a href="/bets" class="nav-item <?php echo (isset($segments[0]) && $segments[0] === 'bets') ? 'active' : ''; ?>">
-                        📝 Bets
+                    <a href="/bets" class="nav-item">
+                        Bets
                     </a>
-                    <a href="/statistics" class="nav-item <?php echo (isset($segments[0]) && $segments[0] === 'statistics') ? 'active' : ''; ?>">
-                        📈 Statistics
+                    <a href="/statistics" class="nav-item">
+                        Statistics
                     </a>
-                    <a href="/bookmakers" class="nav-item <?php echo (isset($segments[0]) && $segments[0] === 'bookmakers') ? 'active' : ''; ?>">
-                        🏦 Bookmakers
+                    <a href="/bookmakers" class="nav-item">
+                        Bookmakers
                     </a>
-                    <a href="/tags" class="nav-item <?php echo (isset($segments[0]) && $segments[0] === 'tags') ? 'active' : ''; ?>">
-                        🏷️ Tags
+                    <a href="/tags" class="nav-item">
+                        Tags
                     </a>
-                    <a href="/tipsters" class="nav-item <?php echo (isset($segments[0]) && $segments[0] === 'tipsters') ? 'active' : ''; ?>">
-                        👥 Tipsters
+                    <a href="/tipsters" class="nav-item">
+                        Tipsters
                     </a>
                 </nav>
             </aside>
