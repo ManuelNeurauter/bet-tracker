@@ -12,7 +12,7 @@
                         <option value="pending" <?php echo ($filters['status'] === 'pending') ? 'selected' : ''; ?>>Pending</option>
                         <option value="won" <?php echo ($filters['status'] === 'won') ? 'selected' : ''; ?>>Won</option>
                         <option value="lost" <?php echo ($filters['status'] === 'lost') ? 'selected' : ''; ?>>Lost</option>
-                        <option value="void" <?php echo ($filters['status'] === 'void') ? 'selected' : ''; ?>>Void</option>
+                        <option value="cashout" <?php echo ($filters['status'] === 'cashout') ? 'selected' : ''; ?>>Cashed Out</option>
                     </select>
                 </div>
                 
@@ -96,8 +96,16 @@
                     <td><?php echo getStatusBadge($bet['status']); ?></td>
                     <td><?php echo formatDate($bet['created_at'], 'M d'); ?></td>
                     <td>
-                        <a href="/bets/<?php echo $bet['id']; ?>" class="btn btn-small">View</a>
+                        <?php if ($bet['status'] === 'pending'): ?>
+                        <div class="bet-actions-quick">
+                            <button class="btn btn-success btn-small quick-settle" data-bet-id="<?php echo $bet['id']; ?>" data-status="won" title="Mark as Won">Win</button>
+                            <button class="btn btn-danger btn-small quick-settle" data-bet-id="<?php echo $bet['id']; ?>" data-status="lost" title="Mark as Lost">Lose</button>
+                            <button class="btn btn-info btn-small quick-cashout" data-bet-id="<?php echo $bet['id']; ?>" title="Cashout">Cashout</button>
+                            <a href="/bets/<?php echo $bet['id']; ?>/edit" class="btn btn-small">Edit</a>
+                        </div>
+                        <?php else: ?>
                         <a href="/bets/<?php echo $bet['id']; ?>/edit" class="btn btn-small">Edit</a>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -121,3 +129,114 @@
         <a href="/bets/add" class="btn btn-primary btn-large">+ Add Bet</a>
     </div>
 </div>
+
+<!-- Cashout Modal -->
+<div id="cashoutModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Cashout Bet</h2>
+            <button class="modal-close" onclick="closeCashoutModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="cashoutForm">
+                <div class="form-group">
+                    <label for="cashoutAmount">Amount Received *</label>
+                    <input type="number" id="cashoutAmount" name="cashoutAmount" step="0.01" min="0" required placeholder="Enter amount received">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Confirm Cashout</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeCashoutModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentBetId = null;
+
+// Quick settle buttons (Win/Lose)
+document.querySelectorAll('.quick-settle').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const betId = this.dataset.betId;
+        const status = this.dataset.status;
+        
+        if (confirm(`Mark bet as ${status}?`)) {
+            quickSettleBet(betId, status);
+        }
+    });
+});
+
+// Cashout button
+document.querySelectorAll('.quick-cashout').forEach(btn => {
+    btn.addEventListener('click', function() {
+        currentBetId = this.dataset.betId;
+        document.getElementById('cashoutModal').style.display = 'flex';
+        document.getElementById('cashoutAmount').focus();
+    });
+});
+
+// Cashout form submission
+document.getElementById('cashoutForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const amount = parseFloat(document.getElementById('cashoutAmount').value);
+    
+    if (amount >= 0 && currentBetId) {
+        quickSettleBet(currentBetId, 'cashout', amount);
+    }
+});
+
+function quickSettleBet(betId, status, actualReturn = null) {
+    const data = {
+        betId: betId,
+        status: status,
+        actualReturn: actualReturn
+    };
+    
+    if (status === 'won' && !actualReturn) {
+        // For won bets, fetch the potential return
+        const row = document.querySelector(`button[data-bet-id="${betId}"]`).closest('tr');
+        const potentialReturnCell = row.querySelector('td:nth-child(7)'); // Return column
+        data.actualReturn = parseFloat(potentialReturnCell.textContent.replace(/[^\d.-]/g, ''));
+    } else if (status === 'lost' && !actualReturn) {
+        // For lost bets, actual return = 0
+        data.actualReturn = 0;
+    }
+    
+    fetch('/api/bets/quick-settle', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            closeCashoutModal();
+            // Refresh the page to show updated status
+            location.reload();
+        } else {
+            alert('Error: ' + (result.message || 'Failed to update bet'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating bet');
+    });
+}
+
+function closeCashoutModal() {
+    document.getElementById('cashoutModal').style.display = 'none';
+    document.getElementById('cashoutForm').reset();
+    currentBetId = null;
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('cashoutModal');
+    if (event.target === modal) {
+        closeCashoutModal();
+    }
+});
+</script>

@@ -94,7 +94,7 @@
                     <option value="pending" selected>Pending</option>
                     <option value="won">Won</option>
                     <option value="lost">Lost</option>
-                    <option value="void">Void</option>
+                    <option value="cashout">Cashed Out</option>
                 </select>
             </div>
             

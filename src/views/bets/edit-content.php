@@ -81,10 +81,11 @@
             <div class="form-group">
                 <label for="status">Status *</label>
                 <select id="status" name="status" required>
-                    <option value="pending" <?php echo ($bet['status'] === 'pending') ? 'selected' : ''; ?>>Pending</option>
+                    <?php if ($bet['status'] === 'pending'): ?>
+                    <option value="pending" selected>Pending</option>
+                    <?php endif; ?>
                     <option value="won" <?php echo ($bet['status'] === 'won') ? 'selected' : ''; ?>>Won</option>
                     <option value="lost" <?php echo ($bet['status'] === 'lost') ? 'selected' : ''; ?>>Lost</option>
-                    <option value="void" <?php echo ($bet['status'] === 'void') ? 'selected' : ''; ?>>Void</option>
                     <option value="cashout" <?php echo ($bet['status'] === 'cashout') ? 'selected' : ''; ?>>Cashed Out</option>
                 </select>
             </div>

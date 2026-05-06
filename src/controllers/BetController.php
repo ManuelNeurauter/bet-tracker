@@ -252,6 +252,7 @@ class BetController {
         
         $bookmakers = $bookmakerModel->getByUser($userId);
         $sports = $sportModel->getAll();
+        $userData = getCurrentUser();
         
         include __DIR__ . '/../views/bets/list.php';
     }

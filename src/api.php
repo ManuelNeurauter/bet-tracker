@@ -23,7 +23,7 @@ $segments = array_values($segments);
 $response = ['success' => false, 'message' => 'Invalid request'];
 
 // API Routes
-if ($segments[1] ?? '' === 'competitions') {
+if (($segments[1] ?? '') === 'competitions') {
     // Get competitions for a sport
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['sport_id'])) {
         $sportId = (int)$_GET['sport_id'];
@@ -32,7 +32,7 @@ if ($segments[1] ?? '' === 'competitions') {
         $response = ['success' => true, 'competitions' => $competitions];
     }
 }
-elseif ($segments[1] ?? '' === 'stats') {
+elseif (($segments[1] ?? '') === 'stats') {
     // Get quick stats
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $userId = getCurrentUserId();
@@ -53,7 +53,7 @@ elseif ($segments[1] ?? '' === 'stats') {
         ];
     }
 }
-elseif ($segments[1] ?? '' === 'bankroll') {
+elseif (($segments[1] ?? '') === 'bankroll') {
     // Get current bankroll
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $userId = getCurrentUserId();
@@ -62,9 +62,10 @@ elseif ($segments[1] ?? '' === 'bankroll') {
         $response = ['success' => true, 'bankroll' => $bankroll];
     }
 }
-elseif ($segments[1] ?? '' === 'bets' && $segments[2] ?? '' === 'quick-settle') {
+elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settle') {
     // Quick settle a bet
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        requireLogin();
         $input = json_decode(file_get_contents('php://input'), true);
         $betId = $input['betId'] ?? null;
         $status = $input['status'] ?? null;
@@ -76,19 +77,32 @@ elseif ($segments[1] ?? '' === 'bets' && $segments[2] ?? '' === 'quick-settle') 
             $userId = getCurrentUserId();
             $betModel = new Bet();
             
-            if ($betModel->update($betId, $userId, [
-                'status' => $status,
-                'actual_return' => $actualReturn,
-                'settled_at' => date('Y-m-d H:i:s')
-            ])) {
-                $response = ['success' => true, 'message' => 'Bet updated'];
+            // Verify bet belongs to user
+            $bet = $betModel->getById($betId, $userId);
+            if (!$bet) {
+                $response = ['success' => false, 'message' => 'Bet not found'];
             } else {
-                $response = ['success' => false, 'message' => 'Failed to update bet'];
+                $updateData = [
+                    'status' => $status,
+                    'actual_return' => $actualReturn,
+                    'settled_at' => date('Y-m-d H:i:s')
+                ];
+                
+                // For cashout, use the actual return as cashout amount
+                if ($status === 'cashout' && $actualReturn !== null) {
+                    $updateData['cashout_amount'] = $actualReturn;
+                }
+                
+                if ($betModel->update($betId, $userId, $updateData)) {
+                    $response = ['success' => true, 'message' => 'Bet updated successfully'];
+                } else {
+                    $response = ['success' => false, 'message' => 'Failed to update bet'];
+                }
             }
         }
     }
 }
-elseif ($segments[1] ?? '' === 'odds-convert') {
+elseif (($segments[1] ?? '') === 'odds-convert') {
     // Convert odds format
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $odds = (float)($_GET['odds'] ?? 0);
@@ -113,7 +127,7 @@ elseif ($segments[1] ?? '' === 'odds-convert') {
         $response = ['success' => true, 'converted' => $converted];
     }
 }
-elseif ($segments[1] ?? '' === 'validate-email') {
+elseif (($segments[1] ?? '') === 'validate-email') {
     // Validate email availability
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $email = $_GET['email'] ?? '';
@@ -126,7 +140,7 @@ elseif ($segments[1] ?? '' === 'validate-email') {
         }
     }
 }
-elseif ($segments[1] ?? '' === 'validate-username') {
+elseif (($segments[1] ?? '') === 'validate-username') {
     // Validate username availability
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $username = $_GET['username'] ?? '';

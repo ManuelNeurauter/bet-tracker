@@ -51,7 +51,15 @@ class Bet {
      * Get bet by ID
      */
     public function getById($betId, $userId) {
-        $stmt = $this->db->prepare('SELECT * FROM bets WHERE id = ? AND user_id = ?');
+        $stmt = $this->db->prepare('
+            SELECT b.*, 
+                   bm.name as bookmaker_name,
+                   s.name as sport_name
+            FROM bets b
+            LEFT JOIN bookmakers bm ON b.bookmaker_id = bm.id
+            LEFT JOIN sports s ON b.sport_id = s.id
+            WHERE b.id = ? AND b.user_id = ?
+        ');
         $stmt->execute([$betId, $userId]);
         return $stmt->fetch();
     }
