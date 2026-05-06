@@ -1,4 +1,4 @@
 <?php 
-$content_view = 'src/views/settings-content.php';
-include 'src/views/layout.php';
+$content_view = __DIR__ . '/settings-content.php';
+include __DIR__ . '/layout.php';
 ?>

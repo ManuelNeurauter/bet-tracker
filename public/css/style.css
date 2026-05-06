@@ -30,6 +30,8 @@
 
 html {
     font-size: 16px;
+    height: 100%;
+    overflow: hidden;
 }
 
 body {
@@ -37,6 +39,8 @@ body {
     color: var(--color-text);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     line-height: 1.6;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* Layout */
@@ -279,6 +283,46 @@ small a:hover {
     text-decoration: underline;
 }
 
+/* Auth Form Styling */
+.auth-form .form-group {
+    margin-bottom: 1.25rem;
+}
+
+.auth-form label {
+    display: block;
+    margin-bottom: 0.6rem;
+    color: var(--color-text);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.auth-form input[type="text"],
+.auth-form input[type="email"],
+.auth-form input[type="password"],
+.auth-form input[type="number"],
+.auth-form select {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    background-color: var(--color-input-bg);
+    border: 1.5px solid var(--color-input-border);
+    border-radius: 6px;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    transition: var(--transition);
+}
+
+.auth-form input[type="text"]:focus,
+.auth-form input[type="email"]:focus,
+.auth-form input[type="password"]:focus,
+.auth-form input[type="number"]:focus,
+.auth-form select:focus {
+    outline: none;
+    border-color: var(--color-success);
+    background-color: rgba(0, 208, 132, 0.05);
+    box-shadow: 0 0 0 3px rgba(0, 208, 132, 0.1);
+}
+
 /* Buttons */
 .btn {
     display: inline-block;
@@ -340,6 +384,24 @@ small a:hover {
 .btn-large {
     padding: 0.875rem 2rem;
     font-size: 1rem;
+}
+
+.auth-form .btn-primary {
+    width: 100%;
+    padding: 0.95rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-top: 0.5rem;
+    background: linear-gradient(135deg, var(--color-success) 0%, #00c570 100%);
+    border: none;
+    transition: var(--transition);
+}
+
+.auth-form .btn-primary:hover {
+    background: linear-gradient(135deg, #00ff99 0%, #00d084 100%);
+    box-shadow: 0 10px 25px rgba(0, 208, 132, 0.3);
+    transform: translateY(-2px);
 }
 
 .form-actions {
@@ -640,24 +702,29 @@ tbody tr.row-void {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: calc(100vh - 70px);
+    height: 100vh;
     padding: 2rem;
+    background: linear-gradient(135deg, #0f1117 0%, #1a1d2e 100%);
 }
 
 .auth-box {
-    background-color: var(--color-secondary-bg);
-    padding: 2rem;
-    border-radius: var(--border-radius);
-    border: 1px solid var(--color-border);
+    background: linear-gradient(135deg, #1a1d2e 0%, #25283d 100%);
+    padding: 3rem 2.5rem;
+    border-radius: 12px;
+    border: 2px solid var(--color-border);
     width: 100%;
-    max-width: 400px;
-    box-shadow: var(--shadow-lg);
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
 }
 
 .auth-box h2 {
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
     color: var(--color-success);
     text-align: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
 }
 
 .auth-form {
@@ -667,16 +734,19 @@ tbody tr.row-void {
 .auth-footer {
     text-align: center;
     color: var(--color-text-light);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+    margin-top: 1rem;
 }
 
 .auth-footer a {
     color: var(--color-success);
     text-decoration: none;
+    font-weight: 600;
+    transition: var(--transition);
 }
 
 .auth-footer a:hover {
-    text-decoration: underline;
+    color: #00ff99;
 }
 
 /* Cards */
