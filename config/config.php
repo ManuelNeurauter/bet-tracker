@@ -85,4 +85,4 @@ if (APP_ENV === 'development') {
 // Set Default Timezone
 date_default_timezone_set(APP_TIMEZONE);
 
-?>
+

@@ -1,4 +1,4 @@
 <?php 
-$content_view = 'src/views/tipsters/edit-content.php';
-include 'src/views/layout.php';
+$content_view = __DIR__ . '/edit-content.php';
+include __DIR__ . '/../layout.php';
 ?>

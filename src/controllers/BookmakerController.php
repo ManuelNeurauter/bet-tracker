@@ -29,7 +29,7 @@ class BookmakerController {
             }
         }
         
-        include 'src/views/bookmakers/list.php';
+        include __DIR__ . '/../views/bookmakers/list.php';
     }
     
     /**
@@ -179,4 +179,4 @@ class BookmakerController {
     }
 }
 
-?>
+

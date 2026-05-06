@@ -15,7 +15,7 @@ class TagController {
         $tagModel = new Tag();
         $tags = $tagModel->getByUser($userId);
         
-        include 'src/views/tags/list.php';
+        include __DIR__ . '/../views/tags/list.php';
     }
     
     /**
@@ -154,4 +154,4 @@ class TagController {
     }
 }
 
-?>
+
