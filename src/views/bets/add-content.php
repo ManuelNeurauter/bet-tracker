@@ -19,6 +19,7 @@
                     <?php foreach ($sports as $sport): ?>
                     <option value="<?php echo $sport['id']; ?>"><?php echo sanitize($sport['name']); ?></option>
                     <?php endforeach; ?>
+                    <option value="other">Other</option>
                 </select>
             </div>
             
@@ -178,15 +179,47 @@ document.addEventListener('DOMContentLoaded', function() {
     stakeInput.addEventListener('change', updatePotentialReturn);
     
     // Load competitions when sport changes
-    sportSelect.addEventListener('change', function() {
-        const sportId = this.value;
-        if (!sportId) {
-            competitionSelect.innerHTML = '<option value="">Select Competition</option>';
+    // Mapping of common competitions per sport name (case-insensitive keys)
+    const competitionMap = {
+        'football': ['Premier League', 'Champions League', 'Europa League', 'FA Cup', 'EFL Cup'],
+        'soccer': ['Premier League', 'Champions League', 'Europa League', 'FA Cup', 'EFL Cup'],
+        'tennis': ['Wimbledon', 'US Open', 'French Open', 'Australian Open', 'ATP Tour'],
+        'horse racing': ['Cheltenham', 'Aintree', 'Royal Ascot', 'Grand National'],
+        'cricket': ['IPL', 'The Ashes', 'County Championship', 'T20 Blast'],
+        'basketball': ['NBA', 'EuroLeague', 'EuroCup'],
+        'boxing': ['World Title', 'Regional Title'],
+        'mma': ['UFC', 'Bellator']
+    };
+
+    function populateCompetitionsForSport(sportName) {
+        const defaultOption = '<option value="">Select Competition</option>';
+        if (!sportName) {
+            competitionSelect.innerHTML = defaultOption;
             return;
         }
-        
-        // This would typically load from API
-        competitionSelect.innerHTML = '<option value="">Select Competition</option>';
+
+        const key = sportName.trim().toLowerCase();
+        let items = competitionMap[key] || [];
+        // Always include 'Other' as last option
+        const options = [defaultOption].concat(items.map(c => `<option value="${c}">${c}</option>`)).concat(['<option value="other">Other</option>']);
+        competitionSelect.innerHTML = options.join('\n');
+    }
+
+    sportSelect.addEventListener('change', function() {
+        const sportText = this.options[this.selectedIndex] ? this.options[this.selectedIndex].text : '';
+        if (this.value === 'other') {
+            // For 'Other' sport, just provide an 'Other' competition option
+            competitionSelect.innerHTML = '<option value="">Select Competition</option><option value="other">Other</option>';
+            return;
+        }
+        populateCompetitionsForSport(sportText);
     });
+
+    // Initialize competitions on load if a sport is pre-selected
+    (function initCompetitions() {
+        const selectedIndex = sportSelect.selectedIndex;
+        const sportText = selectedIndex > -1 ? (sportSelect.options[selectedIndex].text || '') : '';
+        populateCompetitionsForSport(sportText);
+    })();
 });
 </script>

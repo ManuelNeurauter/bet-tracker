@@ -750,6 +750,22 @@ textarea:disabled {
     margin-top: 0.5rem;
 }
 
+/* Dashboard-specific quick action tweaks: align add button to the right and reduce oversized min-width */
+.dashboard-container .quick-actions {
+    justify-content: flex-end;
+    margin-top: 0.25rem;
+}
+
+.dashboard-container .quick-actions .btn {
+    min-width: 140px; /* smaller on dashboard */
+}
+
+/* Ensure 'View All Bets' link inside dashboard section has appropriate spacing */
+.dashboard-section > a.btn {
+    margin-top: 0.75rem;
+    display: inline-block;
+}
+
 .table,
 table {
     width: 100%;
@@ -909,6 +925,44 @@ tbody tr.row-void {
     gap: 1rem;
 }
 
+/* Make the small Edit button on tag cards more visible */
+.tag-card .btn-small {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.16);
+}
+
+.tag-card .btn-small:hover {
+    background: rgba(255, 255, 255, 0.10);
+}
+
+/* Make the small Edit button on tipster cards more visible (match tag-card) */
+.tipster-card .btn-small {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.16);
+}
+
+.tipster-card .btn-small:hover {
+    background: rgba(255, 255, 255, 0.10);
+}
+
+/* Make 'Edit' action button in tipsters table visible */
+.tipsters-table .btn-small {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.12);
+    padding: 0.45rem 0.8rem;
+}
+
+.tipsters-table .btn-small:hover {
+    background: rgba(255, 255, 255, 0.10);
+    transform: translateY(-1px);
+}
+
 .card-header {
     display: flex;
     align-items: flex-start;
@@ -1038,19 +1092,64 @@ tbody tr.row-void {
     align-items: center;
     justify-content: center;
     min-height: 2.25rem;
-    padding: 0.5rem 0.85rem;
+    padding: 0.55rem 0.95rem 0.55rem 2.25rem;
     border-radius: 999px;
     color: #08111d;
     font-weight: 800;
+    border: 2px solid rgba(255, 255, 255, 0.18);
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
     cursor: pointer;
-    transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+    opacity: 0.75;
+}
+
+.tag-label::before {
+    content: '';
+    position: absolute;
+    left: 0.65rem; /* align with padding-left */
+    top: 50%;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 999px;
+    border: 2px solid rgba(8, 17, 29, 0.45);
+    background: rgba(255, 255, 255, 0.35);
+    transform: translateY(-50%);
+    opacity: 0.35;
+    transition: opacity var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .tag-option input:checked + .tag-label {
-    transform: translateY(-1px) scale(1.02);
-    box-shadow: 0 14px 24px rgba(0, 0, 0, 0.2);
-    filter: brightness(1.05);
+    transform: translateY(0) scale(1.02);
+    border-color: rgba(255, 255, 255, 0.75);
+    box-shadow: 0 0 0 0.2rem rgba(124, 247, 196, 0.22), 0 14px 24px rgba(0, 0, 0, 0.22);
+    filter: brightness(1.08) saturate(1.08);
+    opacity: 1;
+}
+
+.tag-option input:checked + .tag-label::before {
+    opacity: 1;
+    background: #08111d;
+    border-color: #08111d;
+    box-shadow: 0 0 0 0.18rem rgba(255, 255, 255, 0.45);
+}
+
+.tag-option input:checked + .tag-label::after {
+    content: '✓';
+    position: absolute;
+    left: 0.65rem; /* match ::before */
+    top: 50%;
+    width: 1.05rem;
+    height: 1.05rem;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 900;
+    line-height: 1;
 }
 
 .pagination {
