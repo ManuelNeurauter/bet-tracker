@@ -39,8 +39,10 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
-                <button type="submit" class="btn btn-secondary">Filter</button>
+            </div>
+            
+            <div class="filter-row" style="align-items: flex-end;">
+                <button type="submit" class="btn btn-secondary">Apply Filters</button>
             </div>
             
             <div class="filter-row">
@@ -96,16 +98,15 @@
                     <td><?php echo getStatusBadge($bet['status']); ?></td>
                     <td><?php echo formatDate($bet['created_at'], 'M d'); ?></td>
                     <td>
-                        <?php if ($bet['status'] === 'pending'): ?>
-                        <div class="bet-actions-quick">
-                            <button class="btn btn-success btn-small quick-settle" data-bet-id="<?php echo $bet['id']; ?>" data-status="won" title="Mark as Won">Win</button>
-                            <button class="btn btn-danger btn-small quick-settle" data-bet-id="<?php echo $bet['id']; ?>" data-status="lost" title="Mark as Lost">Lose</button>
-                            <button class="btn btn-info btn-small quick-cashout" data-bet-id="<?php echo $bet['id']; ?>" title="Cashout">Cashout</button>
-                            <a href="/bets/<?php echo $bet['id']; ?>/edit" class="btn btn-small">Edit</a>
+                        <div class="bet-actions-quick" style="flex-wrap: nowrap; gap: 0.35rem;">
+                            <?php if ($bet['status'] === 'pending'): ?>
+                            <button class="btn btn-success btn-small quick-settle" data-bet-id="<?php echo $bet['id']; ?>" data-status="won" title="Mark as Won">W</button>
+                            <button class="btn btn-danger btn-small quick-settle" data-bet-id="<?php echo $bet['id']; ?>" data-status="lost" title="Mark as Lost">L</button>
+                            <button class="btn btn-info btn-small quick-cashout" data-bet-id="<?php echo $bet['id']; ?>" title="Cashout">C</button>
+                            <?php endif; ?>
+                            <a href="/bets/<?php echo $bet['id']; ?>/edit" class="btn btn-small" title="Edit">✎</a>
+                            <button class="btn btn-danger btn-small" onclick="openDeleteModal(<?php echo $bet['id']; ?>)" title="Delete">✕</button>
                         </div>
-                        <?php else: ?>
-                        <a href="/bets/<?php echo $bet['id']; ?>/edit" class="btn btn-small">Edit</a>
-                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -152,6 +153,28 @@
     </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Delete Bet</h2>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this bet? This action cannot be undone.</p>
+            <div class="form-actions">
+                <button type="button" class="btn btn-danger" onclick="submitDeleteForm()">Delete</button>
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden delete form for submission -->
+<form id="deleteForm" method="POST" style="display: none;">
+    <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+</form>
+
 <script>
 let currentBetId = null;
 
@@ -194,10 +217,13 @@ function quickSettleBet(betId, status, actualReturn = null) {
     };
     
     if (status === 'won' && !actualReturn) {
-        // For won bets, fetch the potential return
+        // For won bets, calculate potential return: stake * odds
         const row = document.querySelector(`button[data-bet-id="${betId}"]`).closest('tr');
-        const potentialReturnCell = row.querySelector('td:nth-child(7)'); // Return column
-        data.actualReturn = parseFloat(potentialReturnCell.textContent.replace(/[^\d.-]/g, ''));
+        const stakeCell = row.querySelector('td:nth-child(6)'); // Stake column
+        const oddsCell = row.querySelector('td:nth-child(5)'); // Odds column
+        const stake = parseFloat(stakeCell.textContent.replace(/[^\d.-]/g, ''));
+        const odds = parseFloat(oddsCell.textContent.replace(/[^\d.-]/g, ''));
+        data.actualReturn = stake * odds;
     } else if (status === 'lost' && !actualReturn) {
         // For lost bets, actual return = 0
         data.actualReturn = 0;
@@ -238,5 +264,30 @@ window.addEventListener('click', function(event) {
     if (event.target === modal) {
         closeCashoutModal();
     }
+    
+    const deleteModal = document.getElementById('deleteModal');
+    if (event.target === deleteModal) {
+        closeDeleteModal();
+    }
 });
+
+let deleteBetId = null;
+
+function openDeleteModal(betId) {
+    deleteBetId = betId;
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    deleteBetId = null;
+}
+
+function submitDeleteForm() {
+    if (!deleteBetId) return;
+    
+    const form = document.getElementById('deleteForm');
+    form.action = '/bets/' + deleteBetId + '/delete';
+    form.submit();
+}
 </script>

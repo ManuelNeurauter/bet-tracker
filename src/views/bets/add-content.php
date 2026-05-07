@@ -31,13 +31,15 @@
             
             <div class="form-group">
                 <label for="bookmaker_id">Bookmaker</label>
-                <select id="bookmaker_id" name="bookmaker_id">
-                    <option value="">Select Bookmaker</option>
-                    <?php foreach ($bookmakers as $bm): ?>
-                    <option value="<?php echo $bm['id']; ?>"><?php echo sanitize($bm['name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <small><a href="/bookmakers/add">+ Add new</a></small>
+                <div class="form-input-with-action">
+                    <select id="bookmaker_id" name="bookmaker_id">
+                        <option value="">Select Bookmaker</option>
+                        <?php foreach ($bookmakers as $bm): ?>
+                        <option value="<?php echo $bm['id']; ?>"><?php echo sanitize($bm['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <a href="/bookmakers/add" class="btn btn-small btn-secondary">+ Add</a>
+                </div>
             </div>
         </div>
         
@@ -99,10 +101,13 @@
             </div>
             
             <div class="form-group">
-                <label>
-                    <input type="checkbox" id="each_way" name="each_way">
-                    Each Way Bet
-                </label>
+                <label for="actual_return">Actual Return</label>
+                <input type="number" id="actual_return" name="actual_return" step="0.01">
+            </div>
+            
+            <div class="form-group">
+                <label for="cashout_amount">Cashout Amount</label>
+                <input type="number" id="cashout_amount" name="cashout_amount" step="0.01">
             </div>
         </div>
         
@@ -124,12 +129,17 @@
         
         <div class="form-row">
             <div class="form-group full">
-                <label for="tipsters">Tipster(s)</label>
-                <select id="tipsters" name="tipsters[]" multiple>
+                <label for="tipsters">Tipster(s) <small>(optional)</small></label>
+                <div class="tag-selector">
                     <?php foreach ($tipsters as $tipster): ?>
-                    <option value="<?php echo $tipster['id']; ?>"><?php echo sanitize($tipster['name']); ?></option>
+                    <label class="tag-option">
+                        <input type="checkbox" name="tipsters[]" value="<?php echo $tipster['id']; ?>">
+                        <span class="tag-label" style="background-color: #6366f1;">
+                            <?php echo sanitize($tipster['name']); ?>
+                        </span>
+                    </label>
                     <?php endforeach; ?>
-                </select>
+                </div>
             </div>
         </div>
         

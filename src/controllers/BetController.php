@@ -72,6 +72,27 @@ class BetController {
             setFlash('error', 'Failed to create bet. Please try again.');
             redirect('/bets/add');
         }
+
+        $settledReturn = calculateSettlementReturn($data['status'], $data['stake'], $data['odds']);
+        $settlementImpact = calculateSettlementImpact($data['status'], $data['stake'], $data['odds']);
+
+        if ($settledReturn !== null) {
+            $bet->update($betId, $userId, [
+                'actual_return' => $settledReturn,
+                'settled_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            if ($data['bookmaker_id'] && $settlementImpact != 0) {
+                $bookmakerModel = new Bookmaker();
+                $bookmaker = $bookmakerModel->getById($data['bookmaker_id'], $userId);
+                if ($bookmaker) {
+                    $bookmakerModel->update($data['bookmaker_id'], $userId, [
+                        'account_balance' => (float)$bookmaker['account_balance'] + $settlementImpact,
+                    ]);
+                    syncBankrollSnapshot($userId);
+                }
+            }
+        }
         
         // Add tags if any
         if (!empty($_POST['tags'])) {
@@ -166,8 +187,9 @@ class BetController {
         $userId = getCurrentUserId();
         $betModel = new Bet();
         
-        // Verify ownership
-        if (!$betModel->getById($betId, $userId)) {
+        // Get current bet before updating
+        $currentBet = $betModel->getById($betId, $userId);
+        if (!$currentBet) {
             http_response_code(404);
             die('Bet not found');
         }
@@ -189,13 +211,61 @@ class BetController {
             'notes' => sanitize($_POST['notes'] ?? ''),
         ];
         
-        if ($data['status'] !== BET_STATUS_PENDING && is_null($data['actual_return'])) {
+        $data['actual_return'] = calculateSettlementReturn(
+            $data['status'],
+            $data['stake'],
+            $data['odds'],
+            $data['cashout_amount'],
+            $data['actual_return']
+        );
+
+        if ($data['actual_return'] !== null && $data['status'] !== BET_STATUS_PENDING) {
             $data['settled_at'] = date('Y-m-d H:i:s');
         }
         
         if (!$betModel->update($betId, $userId, $data)) {
             setFlash('error', 'Failed to update bet. Please try again.');
             redirect('/bets/' . $betId . '/edit');
+        }
+        
+        // Update bookmaker balance if the settlement changed
+        $oldImpact = calculateSettlementImpact(
+            $currentBet['status'],
+            (float)$currentBet['stake'],
+            (float)$currentBet['odds'],
+            $currentBet['cashout_amount'] ?? null,
+            $currentBet['actual_return'] ?? null
+        );
+        $newImpact = calculateSettlementImpact(
+            $data['status'],
+            $data['stake'],
+            $data['odds'],
+            $data['cashout_amount'],
+            $data['actual_return']
+        );
+
+        $bookmakerModel = new Bookmaker();
+
+        if (($currentBet['bookmaker_id'] ?? null) && $oldImpact != 0) {
+            $currentBookmaker = $bookmakerModel->getById($currentBet['bookmaker_id'], $userId);
+            if ($currentBookmaker) {
+                $bookmakerModel->update($currentBet['bookmaker_id'], $userId, [
+                    'account_balance' => (float)$currentBookmaker['account_balance'] - $oldImpact,
+                ]);
+            }
+        }
+
+        if (($data['bookmaker_id'] ?? null) && $newImpact != 0) {
+            $targetBookmaker = $bookmakerModel->getById($data['bookmaker_id'], $userId);
+            if ($targetBookmaker) {
+                $bookmakerModel->update($data['bookmaker_id'], $userId, [
+                    'account_balance' => (float)$targetBookmaker['account_balance'] + $newImpact,
+                ]);
+            }
+        }
+
+        if ($oldImpact != 0 || $newImpact != 0 || ($currentBet['bookmaker_id'] ?? null) !== ($data['bookmaker_id'] ?? null)) {
+            syncBankrollSnapshot($userId);
         }
         
         // Update tags
@@ -277,12 +347,33 @@ class BetController {
         $betModel = new Bet();
         
         // Verify ownership
-        if (!$betModel->getById($betId, $userId)) {
+        $currentBet = $betModel->getById($betId, $userId);
+        if (!$currentBet) {
             http_response_code(404);
             die('Bet not found');
         }
+        $impact = calculateSettlementImpact(
+            $currentBet['status'],
+            (float)$currentBet['stake'],
+            (float)$currentBet['odds'],
+            $currentBet['cashout_amount'] ?? null,
+            $currentBet['actual_return'] ?? null
+        );
         
         if ($betModel->delete($betId, $userId)) {
+            if (($currentBet['bookmaker_id'] ?? null) && $impact != 0) {
+                $bookmakerModel = new Bookmaker();
+                $bookmaker = $bookmakerModel->getById($currentBet['bookmaker_id'], $userId);
+                if ($bookmaker) {
+                    $bookmakerModel->update($currentBet['bookmaker_id'], $userId, [
+                        'account_balance' => (float)$bookmaker['account_balance'] - $impact,
+                    ]);
+                }
+            }
+
+            if ($impact != 0 || ($currentBet['bookmaker_id'] ?? null)) {
+                syncBankrollSnapshot($userId);
+            }
             setFlash('success', 'Bet deleted successfully!');
         } else {
             setFlash('error', 'Failed to delete bet.');

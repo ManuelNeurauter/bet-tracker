@@ -244,41 +244,47 @@ class Bet {
             $stmt = $this->db->prepare('
                 SELECT
                     s.id,
-                    s.name,
-                    COUNT(b.id) as total_bets,
-                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as won_bets,
-                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as lost_bets,
+                    s.name as sport_name,
+                    COUNT(b.id) as bet_count,
+                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as won_count,
+                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as lost_count,
                     SUM(b.stake) as total_staked,
                     SUM(CASE WHEN b.actual_return IS NOT NULL THEN b.actual_return ELSE 0 END) as total_returned,
-                    SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit
+                    SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit_loss
                 FROM bets b
                 LEFT JOIN sports s ON b.sport_id = s.id
-                WHERE b.user_id = ? AND b.status IN (?, ?)
+                WHERE b.user_id = ? AND b.status IN (?, ?, ?)
                 GROUP BY s.id, s.name
-                ORDER BY profit DESC
+                ORDER BY profit_loss DESC
             ');
-            $stmt->execute([$userId, BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_WON, BET_STATUS_LOST]);
+            $stmt->execute([BET_STATUS_WON, BET_STATUS_LOST, $userId, BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_CASHOUT]);
         } elseif ($groupBy === 'bookmaker_id') {
             $stmt = $this->db->prepare('
                 SELECT
                     bm.id,
-                    bm.name,
-                    COUNT(b.id) as total_bets,
-                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as won_bets,
-                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as lost_bets,
+                    bm.name as bookmaker_name,
+                    COUNT(b.id) as bet_count,
+                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as won_count,
+                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as lost_count,
                     SUM(b.stake) as total_staked,
                     SUM(CASE WHEN b.actual_return IS NOT NULL THEN b.actual_return ELSE 0 END) as total_returned,
-                    SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit
+                    SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit_loss
                 FROM bets b
                 LEFT JOIN bookmakers bm ON b.bookmaker_id = bm.id
-                WHERE b.user_id = ? AND b.status IN (?, ?)
+                WHERE b.user_id = ? AND b.status IN (?, ?, ?)
                 GROUP BY bm.id, bm.name
-                ORDER BY profit DESC
+                ORDER BY profit_loss DESC
             ');
-            $stmt->execute([$userId, BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_WON, BET_STATUS_LOST]);
+            $stmt->execute([BET_STATUS_WON, BET_STATUS_LOST, $userId, BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_CASHOUT]);
         }
         
-        return $stmt->fetchAll();
+        // Calculate ROI for each row
+        $results = $stmt->fetchAll();
+        foreach ($results as &$row) {
+            $row['roi'] = ($row['total_staked'] > 0) ? round(($row['profit_loss'] / $row['total_staked']) * 100, 2) : 0;
+        }
+        
+        return $results;
     }
 }
 

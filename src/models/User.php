@@ -110,12 +110,12 @@ class User {
                 COUNT(*) as total_bets,
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as won_bets,
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as lost_bets,
-                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as void_bets,
-                SUM(CASE WHEN status IN (?, ?) THEN 1 ELSE 0 END) as settled_bets,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as cashed_out_bets,
+                SUM(CASE WHEN status IN (?, ?, ?) THEN 1 ELSE 0 END) as settled_bets,
                 SUM(stake) as total_staked,
                 SUM(CASE WHEN actual_return IS NOT NULL THEN actual_return ELSE 0 END) as total_returned,
                 SUM(CASE WHEN actual_return IS NOT NULL THEN (actual_return - stake) ELSE 0 END) as total_profit,
-                AVG(CASE WHEN status IN (?, ?) THEN odds ELSE NULL END) as avg_odds
+                AVG(CASE WHEN status IN (?, ?, ?) THEN odds ELSE NULL END) as avg_odds
             FROM bets
             WHERE user_id = ? AND status != ?
         ');
@@ -123,11 +123,13 @@ class User {
         $stmt->execute([
             BET_STATUS_WON,
             BET_STATUS_LOST,
-            BET_STATUS_VOID,
+            BET_STATUS_CASHOUT,
             BET_STATUS_WON,
             BET_STATUS_LOST,
+            BET_STATUS_CASHOUT,
             BET_STATUS_WON,
             BET_STATUS_LOST,
+            BET_STATUS_CASHOUT,
             $userId,
             BET_STATUS_PENDING
         ]);
@@ -148,6 +150,52 @@ class User {
         $result = $stmt->fetch();
         
         return $result['total_balance'] ?? 0;
+    }
+
+    /**
+     * Record a daily bankroll snapshot
+     */
+    public function recordBankrollSnapshot($userId, $balance = null, $snapshotDate = null) {
+        if (!$userId) {
+            return false;
+        }
+
+        if ($balance === null) {
+            $balance = $this->getCurrentBankroll($userId);
+        }
+
+        if ($snapshotDate === null) {
+            $snapshotDate = date('Y-m-d');
+        }
+
+        $stmt = $this->db->prepare('
+            INSERT INTO bankroll_snapshots (user_id, snapshot_date, balance)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE balance = VALUES(balance)
+        ');
+
+        return $stmt->execute([$userId, $snapshotDate, $balance]);
+    }
+
+    /**
+     * Get bankroll history for charting
+     */
+    public function getBankrollHistory($userId, $limit = 30) {
+        $stmt = $this->db->prepare('
+            SELECT snapshot_date, balance
+            FROM bankroll_snapshots
+            WHERE user_id = ?
+            ORDER BY snapshot_date ASC, id ASC
+        ');
+        $stmt->execute([$userId]);
+
+        $history = $stmt->fetchAll();
+
+        if ($limit > 0 && count($history) > $limit) {
+            $history = array_slice($history, -$limit);
+        }
+
+        return $history;
     }
 }
 

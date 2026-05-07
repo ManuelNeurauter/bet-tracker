@@ -35,11 +35,15 @@
     <div class="charts-row">
         <div class="chart-container">
             <h3>Bankroll Over Time</h3>
-            <canvas id="bankrollChart"></canvas>
+            <div class="chart-viewport">
+                <canvas id="bankrollChart"></canvas>
+            </div>
         </div>
         <div class="chart-container">
             <h3>P&L by Sport</h3>
-            <canvas id="sportChart"></canvas>
+            <div class="chart-viewport">
+                <canvas id="sportChart"></canvas>
+            </div>
         </div>
     </div>
     
@@ -114,26 +118,53 @@
 </div>
 
 <script>
-// Placeholder for chart initialization
 document.addEventListener('DOMContentLoaded', function() {
+    const bankrollHistory = <?php echo json_encode($bankrollHistory); ?>;
+    const bankrollLabels = bankrollHistory.map(function(point) {
+        return point.snapshot_date;
+    });
+    const bankrollValues = bankrollHistory.map(function(point) {
+        return Number(point.balance);
+    });
+
     // Bankroll chart
     const bankrollCtx = document.getElementById('bankrollChart');
     if (bankrollCtx) {
+        const bankrollGradient = bankrollCtx.getContext('2d').createLinearGradient(0, 0, 0, 260);
+        bankrollGradient.addColorStop(0, 'rgba(0, 208, 132, 0.35)');
+        bankrollGradient.addColorStop(1, 'rgba(0, 208, 132, 0.02)');
+
         new Chart(bankrollCtx, {
             type: 'line',
             data: {
-                labels: ['This would be populated from data'],
+                labels: bankrollLabels,
                 datasets: [{
                     label: 'Bankroll',
-                    data: [100],
+                    data: bankrollValues,
                     borderColor: '#00d084',
-                    backgroundColor: 'rgba(0, 208, 132, 0.1)',
-                    tension: 0.4
+                    backgroundColor: bankrollGradient,
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
                 }]
             },
             options: {
                 responsive: true,
-                plugins: { legend: { display: false } }
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
+                    },
+                    y: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
+                    }
+                }
             }
         });
     }
@@ -141,16 +172,39 @@ document.addEventListener('DOMContentLoaded', function() {
     // Sport chart
     const sportCtx = document.getElementById('sportChart');
     if (sportCtx) {
+        const profitBySport = <?php echo json_encode($profitBySport); ?>;
         new Chart(sportCtx, {
-            type: 'doughnut',
+            type: 'bar',
             data: {
-                labels: <?php echo json_encode(array_column($profitBySport, 'name')); ?>,
+                labels: profitBySport.map(function(row) {
+                    return row.sport_name || row.bookmaker_name || 'Unknown';
+                }),
                 datasets: [{
-                    data: <?php echo json_encode(array_column($profitBySport, 'profit')); ?>,
-                    backgroundColor: ['#00d084', '#ff4757', '#3498db', '#ffa502', '#9b59b6'],
+                    data: profitBySport.map(function(row) {
+                        return Number(row.profit_loss || row.profit || 0);
+                    }),
+                    backgroundColor: profitBySport.map(function(row) {
+                        return Number(row.profit_loss || row.profit || 0) >= 0 ? '#00d084' : '#ff4757';
+                    }),
                 }]
             },
-            options: { responsive: true }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
+                    },
+                    y: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
+                    }
+                }
+            }
         });
     }
 });

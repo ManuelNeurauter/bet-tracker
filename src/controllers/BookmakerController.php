@@ -21,7 +21,7 @@ class BookmakerController {
             $bookmaker['stats'] = $stats;
             
             if ($stats['total_bets'] > 0) {
-                $bookmaker['roi'] = calculateROI($stats['profit'], $stats['total_staked']);
+                $bookmaker['roi'] = calculateROI($stats['profit_loss'] ?? $stats['profit'], $stats['total_staked']);
                 $bookmaker['win_rate'] = round(($stats['won_bets'] / $stats['total_bets']) * 100, 2);
             } else {
                 $bookmaker['roi'] = 0;
@@ -73,6 +73,7 @@ class BookmakerController {
         
         $bookmakerModel = new Bookmaker();
         if ($bookmakerModel->create($userId, $data)) {
+            syncBankrollSnapshot($userId);
             setFlash('success', 'Bookmaker added successfully!');
             redirect('/bookmakers');
         } else {
@@ -137,6 +138,7 @@ class BookmakerController {
         }
         
         if ($bookmakerModel->update($bookmakerId, $userId, $data)) {
+            syncBankrollSnapshot($userId);
             setFlash('success', 'Bookmaker updated successfully!');
             redirect('/bookmakers');
         } else {
@@ -170,6 +172,7 @@ class BookmakerController {
         }
         
         if ($bookmakerModel->delete($bookmakerId, $userId)) {
+            syncBankrollSnapshot($userId);
             setFlash('success', 'Bookmaker deleted successfully!');
         } else {
             setFlash('error', 'Failed to delete bookmaker.');

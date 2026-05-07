@@ -17,6 +17,13 @@ class DashboardController {
         $pendingBets = $bet->getPendingBets($userId);
         
         $currentBankroll = $user->getCurrentBankroll($userId);
+        $bankrollHistory = $user->getBankrollHistory($userId, 30);
+        if (empty($bankrollHistory)) {
+            $bankrollHistory = [[
+                'snapshot_date' => date('Y-m-d'),
+                'balance' => $currentBankroll,
+            ]];
+        }
         $userData = getCurrentUser();
         
         // Calculate metrics

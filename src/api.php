@@ -82,6 +82,14 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
             if (!$bet) {
                 $response = ['success' => false, 'message' => 'Bet not found'];
             } else {
+                $actualReturn = calculateSettlementReturn(
+                    $status,
+                    (float)$bet['stake'],
+                    (float)$bet['odds'],
+                    $input['cashoutAmount'] ?? null,
+                    $actualReturn
+                );
+
                 $updateData = [
                     'status' => $status,
                     'actual_return' => $actualReturn,
@@ -94,6 +102,33 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                 }
                 
                 if ($betModel->update($betId, $userId, $updateData)) {
+                    $oldImpact = calculateSettlementImpact(
+                        $bet['status'],
+                        (float)$bet['stake'],
+                        (float)$bet['odds'],
+                        $bet['cashout_amount'] ?? null,
+                        $bet['actual_return'] ?? null
+                    );
+                    $newImpact = calculateSettlementImpact(
+                        $status,
+                        (float)$bet['stake'],
+                        (float)$bet['odds'],
+                        $input['cashoutAmount'] ?? null,
+                        $actualReturn
+                    );
+
+                    $bookmakerId = $bet['bookmaker_id'];
+                    if ($bookmakerId && $oldImpact != $newImpact) {
+                        $bookmakerModel = new Bookmaker();
+                        $bookmaker = $bookmakerModel->getById($bookmakerId, $userId);
+                        if ($bookmaker) {
+                            $bookmakerModel->update($bookmakerId, $userId, [
+                                'account_balance' => (float)$bookmaker['account_balance'] - $oldImpact + $newImpact,
+                            ]);
+                            syncBankrollSnapshot($userId);
+                        }
+                    }
+                    
                     $response = ['success' => true, 'message' => 'Bet updated successfully'];
                 } else {
                     $response = ['success' => false, 'message' => 'Failed to update bet'];
