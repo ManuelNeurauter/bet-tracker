@@ -17,6 +17,13 @@ class DashboardController {
         $pendingBets = $bet->getPendingBets($userId);
         
         $currentBankroll = $user->getCurrentBankroll($userId);
+        $bankrollHistory = $user->getBankrollHistory($userId, 30);
+        if (empty($bankrollHistory)) {
+            $bankrollHistory = [[
+                'snapshot_date' => date('Y-m-d'),
+                'balance' => $currentBankroll,
+            ]];
+        }
         $userData = getCurrentUser();
         
         // Calculate metrics
@@ -34,9 +41,14 @@ class DashboardController {
         // Profit by sport
         $profitBySport = $bet->getProfitByGroup($userId, 'sport_id');
         $profitByBookmaker = $bet->getProfitByGroup($userId, 'bookmaker_id');
+
+        // Calendar window: limit payload size while still supporting nearby month navigation
+        $startDate = date('Y-m-d', strtotime('-180 days'));
+        $endDate = date('Y-m-d', strtotime('+180 days'));
+        $dailySummary = $bet->getDailySummary($userId, $startDate, $endDate);
+        $betsByDate = $bet->getBetsByDateRange($userId, $startDate, $endDate);
         
         include __DIR__ . '/../views/dashboard.php';
     }
 }
-
 

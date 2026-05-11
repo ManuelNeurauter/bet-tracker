@@ -113,25 +113,27 @@ class Tipster {
                 COUNT(DISTINCT b.id) as total_bets,
                 SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as won_bets,
                 SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as lost_bets,
+                SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as cashout_bets,
                 SUM(b.stake) as total_staked,
                 SUM(CASE WHEN b.actual_return IS NOT NULL THEN b.actual_return ELSE 0 END) as total_returned,
-                SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit
+                SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit_loss
             FROM bets b
             JOIN bet_tipsters bt ON b.id = bt.bet_id
-            WHERE bt.tipster_id = ? AND b.user_id = ? AND b.status IN (?, ?)
+            WHERE bt.tipster_id = ? AND b.user_id = ? AND b.status IN (?, ?, ?)
         ');
         
         $stmt->execute([
             BET_STATUS_WON,
             BET_STATUS_LOST,
+            BET_STATUS_CASHOUT,
             $tipsterId,
             $userId,
             BET_STATUS_WON,
-            BET_STATUS_LOST
+            BET_STATUS_LOST,
+            BET_STATUS_CASHOUT
         ]);
         
         return $stmt->fetch();
     }
 }
-
 

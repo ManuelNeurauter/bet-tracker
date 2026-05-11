@@ -114,6 +114,68 @@ function calculatePotentialReturn($stake, $odds) {
 }
 
 /**
+ * Calculate settled return based on bet status
+ */
+function calculateSettlementReturn($status, $stake, $odds = 1.0, $cashoutAmount = null, $actualReturn = null, $taxAmount = 0) {
+    switch ($status) {
+        case BET_STATUS_WON:
+            if ($actualReturn !== null) {
+                return round((float)$actualReturn, 2);
+            }
+            // For won bets: payout - tax
+            $payout = calculatePotentialReturn($stake, $odds);
+            return round($payout - $taxAmount, 2);
+        case BET_STATUS_LOST:
+            if ($actualReturn !== null) {
+                return round((float)$actualReturn, 2);
+            }
+            return 0;
+        case BET_STATUS_VOID:
+            return 0;
+        case BET_STATUS_CASHOUT:
+            if ($actualReturn !== null) {
+                return round((float)$actualReturn, 2);
+            }
+            if ($cashoutAmount !== null) {
+                // For cashout: cashout amount - tax
+                return round((float)$cashoutAmount - $taxAmount, 2);
+            }
+            return 0;
+        default:
+            return null;
+    }
+}
+
+/**
+ * Calculate bankroll impact for a bet settlement
+ */
+function calculateSettlementImpact($status, $stake, $odds = 1.0, $cashoutAmount = null, $actualReturn = null, $taxAmount = 0) {
+    if ($status === BET_STATUS_PENDING || $status === BET_STATUS_VOID) {
+        return 0;
+    }
+
+    $settledReturn = calculateSettlementReturn($status, $stake, $odds, $cashoutAmount, $actualReturn, $taxAmount);
+
+    if ($settledReturn === null) {
+        return 0;
+    }
+
+    return round($settledReturn - $stake, 2);
+}
+
+/**
+ * Persist a bankroll snapshot for the current day
+ */
+function syncBankrollSnapshot($userId) {
+    if (!$userId) {
+        return false;
+    }
+
+    $user = new User();
+    return $user->recordBankrollSnapshot($userId);
+}
+
+/**
  * Calculate profit/loss
  */
 function calculateProfit($actualReturn, $stake) {

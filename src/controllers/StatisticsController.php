@@ -17,7 +17,7 @@ class StatisticsController {
         $totalBets = $userStats['total_bets'] ?? 0;
         $wonBets = $userStats['won_bets'] ?? 0;
         $lostBets = $userStats['lost_bets'] ?? 0;
-        $voidBets = $userStats['void_bets'] ?? 0;
+        $cashedOutBets = $userStats['cashed_out_bets'] ?? 0;
         $totalStaked = $userStats['total_staked'] ?? 0;
         $totalReturned = $userStats['total_returned'] ?? 0;
         $totalProfit = $userStats['total_profit'] ?? 0;

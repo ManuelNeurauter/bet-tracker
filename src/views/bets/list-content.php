@@ -12,7 +12,7 @@
                         <option value="pending" <?php echo ($filters['status'] === 'pending') ? 'selected' : ''; ?>>Pending</option>
                         <option value="won" <?php echo ($filters['status'] === 'won') ? 'selected' : ''; ?>>Won</option>
                         <option value="lost" <?php echo ($filters['status'] === 'lost') ? 'selected' : ''; ?>>Lost</option>
-                        <option value="void" <?php echo ($filters['status'] === 'void') ? 'selected' : ''; ?>>Void</option>
+                        <option value="cashout" <?php echo ($filters['status'] === 'cashout') ? 'selected' : ''; ?>>Cashed Out</option>
                     </select>
                 </div>
                 
@@ -39,8 +39,10 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
-                <button type="submit" class="btn btn-secondary">Filter</button>
+            </div>
+            
+            <div class="filter-row" style="align-items: flex-end;">
+                <button type="submit" class="btn btn-secondary">Apply Filters</button>
             </div>
             
             <div class="filter-row">
@@ -96,8 +98,15 @@
                     <td><?php echo getStatusBadge($bet['status']); ?></td>
                     <td><?php echo formatDate($bet['created_at'], 'M d'); ?></td>
                     <td>
-                        <a href="/bets/<?php echo $bet['id']; ?>" class="btn btn-small">View</a>
-                        <a href="/bets/<?php echo $bet['id']; ?>/edit" class="btn btn-small">Edit</a>
+                        <div class="bet-actions-quick" style="flex-wrap: nowrap; gap: 0.35rem;">
+                            <?php if ($bet['status'] === 'pending'): ?>
+                            <button class="btn btn-success btn-small quick-settle" data-bet-id="<?php echo $bet['id']; ?>" data-status="won" title="Mark as Won">W</button>
+                            <button class="btn btn-danger btn-small quick-settle" data-bet-id="<?php echo $bet['id']; ?>" data-status="lost" title="Mark as Lost">L</button>
+                            <button class="btn btn-info btn-small quick-cashout" data-bet-id="<?php echo $bet['id']; ?>" title="Cashout">C</button>
+                            <?php endif; ?>
+                            <a href="/bets/<?php echo $bet['id']; ?>/edit" class="btn btn-small" title="Edit">✎</a>
+                            <button class="btn btn-danger btn-small" onclick="openDeleteModal(<?php echo $bet['id']; ?>)" title="Delete">✕</button>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -121,3 +130,177 @@
         <a href="/bets/add" class="btn btn-primary btn-large">+ Add Bet</a>
     </div>
 </div>
+
+<!-- Cashout Modal -->
+<div id="cashoutModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Cashout Bet</h2>
+            <button class="modal-close" onclick="closeCashoutModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="cashoutForm">
+                <div class="form-group">
+                    <label for="cashoutAmount">Amount Received *</label>
+                    <input type="number" id="cashoutAmount" name="cashoutAmount" step="0.01" min="0" required placeholder="Enter amount received">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Confirm Cashout</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeCashoutModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Delete Bet</h2>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this bet? This action cannot be undone.</p>
+            <div class="form-actions">
+                <button type="button" class="btn btn-danger" onclick="submitDeleteForm()">Delete</button>
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden delete form for submission -->
+<form id="deleteForm" method="POST" style="display: none;">
+    <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+</form>
+
+<script>
+let currentBetId = null;
+
+// Quick settle buttons (Win/Lose)
+document.querySelectorAll('.quick-settle').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const betId = this.dataset.betId;
+        const status = this.dataset.status;
+        
+        if (confirm(`Mark bet as ${status}?`)) {
+            quickSettleBet(betId, status);
+        }
+    });
+});
+
+// Cashout button
+document.querySelectorAll('.quick-cashout').forEach(btn => {
+    btn.addEventListener('click', function() {
+        currentBetId = this.dataset.betId;
+        document.getElementById('cashoutModal').style.display = 'flex';
+        document.getElementById('cashoutAmount').focus();
+    });
+});
+
+// Cashout form submission
+document.getElementById('cashoutForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const amount = parseFloat(document.getElementById('cashoutAmount').value);
+    
+    if (amount >= 0 && currentBetId) {
+        quickSettleBet(currentBetId, 'cashout', amount);
+    }
+});
+
+function quickSettleBet(betId, status, actualReturn = null) {
+    const data = {
+        betId: betId,
+        status: status,
+        actualReturn: actualReturn
+    };
+
+    if (status === 'lost' && !actualReturn) {
+        // For lost bets, actual return = 0
+        data.actualReturn = 0;
+    }
+
+    fetch('/api/bets/quick-settle', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            closeCashoutModal();
+            // Refresh the page to show updated status
+            location.reload();
+        } else {
+            alert('Error: ' + (result.message || 'Failed to update bet'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating bet');
+    });
+}
+
+function closeCashoutModal() {
+    document.getElementById('cashoutModal').style.display = 'none';
+    document.getElementById('cashoutForm').reset();
+    currentBetId = null;
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('cashoutModal');
+    if (event.target === modal) {
+        closeCashoutModal();
+    }
+    
+    const deleteModal = document.getElementById('deleteModal');
+    if (event.target === deleteModal) {
+        closeDeleteModal();
+    }
+});
+
+let deleteBetId = null;
+
+function openDeleteModal(betId) {
+    deleteBetId = betId;
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    deleteBetId = null;
+}
+
+function submitDeleteForm() {
+    if (!deleteBetId) return;
+
+    const form = document.getElementById('deleteForm');
+    const csrf = form.querySelector('input[name="csrf_token"]') ? form.querySelector('input[name="csrf_token"]').value : null;
+    const url = '/bets/' + deleteBetId + '/delete';
+
+    // Try fetch POST first (keeps UX snappy), fallback to form submit
+    if (window.fetch && csrf) {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'csrf_token=' + encodeURIComponent(csrf)
+        }).then(res => {
+            // If server redirected or returned OK, reload to reflect changes
+            window.location.reload();
+        }).catch(err => {
+            // Fallback to classical form submit
+            form.action = url;
+            form.submit();
+        });
+    } else {
+        form.action = url;
+        form.submit();
+    }
+}
+</script>

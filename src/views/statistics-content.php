@@ -18,8 +18,8 @@
                 <span class="metric-value danger"><?php echo $lostBets; ?></span>
             </div>
             <div class="metric-card">
-                <span class="metric-label">Void</span>
-                <span class="metric-value"><?php echo $voidBets; ?></span>
+                <span class="metric-label">Cashed Out</span>
+                <span class="metric-value"><?php echo $cashedOutBets; ?></span>
             </div>
             <div class="metric-card">
                 <span class="metric-label">Win Rate</span>

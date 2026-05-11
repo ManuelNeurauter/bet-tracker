@@ -84,7 +84,6 @@ class AuthController {
         $passwordConfirm = $_POST['password_confirm'] ?? '';
         $currency = sanitize($_POST['currency'] ?? 'USD');
         $timezone = sanitize($_POST['timezone'] ?? 'UTC');
-        $bankroll = (float)($_POST['bankroll_start'] ?? 0);
         
         // Validation
         $errors = [];
@@ -121,7 +120,7 @@ class AuthController {
         }
         
         // Create user
-        if ($user->create($username, $email, $password, $currency, $timezone, $bankroll)) {
+        if ($user->create($username, $email, $password, $currency, $timezone)) {
             setFlash('success', 'Account created successfully! You can now log in.');
             redirect('/login');
         } else {

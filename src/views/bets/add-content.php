@@ -19,6 +19,7 @@
                     <?php foreach ($sports as $sport): ?>
                     <option value="<?php echo $sport['id']; ?>"><?php echo sanitize($sport['name']); ?></option>
                     <?php endforeach; ?>
+                    <option value="other">Other</option>
                 </select>
             </div>
             
@@ -31,13 +32,15 @@
             
             <div class="form-group">
                 <label for="bookmaker_id">Bookmaker</label>
-                <select id="bookmaker_id" name="bookmaker_id">
-                    <option value="">Select Bookmaker</option>
-                    <?php foreach ($bookmakers as $bm): ?>
-                    <option value="<?php echo $bm['id']; ?>"><?php echo sanitize($bm['name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <small><a href="/bookmakers/add">+ Add new</a></small>
+                <div class="form-input-with-action">
+                    <select id="bookmaker_id" name="bookmaker_id">
+                        <option value="">Select Bookmaker</option>
+                        <?php foreach ($bookmakers as $bm): ?>
+                        <option value="<?php echo $bm['id']; ?>"><?php echo sanitize($bm['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <a href="/bookmakers/add" class="btn btn-small btn-secondary">+ Add</a>
+                </div>
             </div>
         </div>
         
@@ -59,6 +62,15 @@
                     <option value="lucky_63">Lucky 63</option>
                     <option value="eachway">Each Way</option>
                 </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="checkbox-label" for="each_way">
+                    <input type="checkbox" id="each_way" name="each_way" value="1">
+                    Each-way bet
+                </label>
             </div>
         </div>
         
@@ -94,15 +106,23 @@
                     <option value="pending" selected>Pending</option>
                     <option value="won">Won</option>
                     <option value="lost">Lost</option>
-                    <option value="void">Void</option>
+                    <option value="cashout">Cashed Out</option>
                 </select>
             </div>
             
             <div class="form-group">
-                <label>
-                    <input type="checkbox" id="each_way" name="each_way">
-                    Each Way Bet
-                </label>
+                <label for="actual_return">Actual Return</label>
+                <input type="number" id="actual_return" name="actual_return" step="0.01">
+            </div>
+            
+            <div class="form-group">
+                <label for="cashout_amount">Cashout Amount</label>
+                <input type="number" id="cashout_amount" name="cashout_amount" step="0.01">
+            </div>
+            
+            <div class="form-group">
+                <label for="tax_amount">Tax Amount</label>
+                <input type="number" id="tax_amount" name="tax_amount" step="0.01" value="0">
             </div>
         </div>
         
@@ -124,12 +144,17 @@
         
         <div class="form-row">
             <div class="form-group full">
-                <label for="tipsters">Tipster(s)</label>
-                <select id="tipsters" name="tipsters[]" multiple>
+                <label for="tipsters">Tipster(s) <small>(optional)</small></label>
+                <div class="tag-selector">
                     <?php foreach ($tipsters as $tipster): ?>
-                    <option value="<?php echo $tipster['id']; ?>"><?php echo sanitize($tipster['name']); ?></option>
+                    <label class="tag-option">
+                        <input type="checkbox" name="tipsters[]" value="<?php echo $tipster['id']; ?>">
+                        <span class="tag-label" style="background-color: #6366f1;">
+                            <?php echo sanitize($tipster['name']); ?>
+                        </span>
+                    </label>
                     <?php endforeach; ?>
-                </select>
+                </div>
             </div>
         </div>
         
@@ -168,15 +193,74 @@ document.addEventListener('DOMContentLoaded', function() {
     stakeInput.addEventListener('change', updatePotentialReturn);
     
     // Load competitions when sport changes
-    sportSelect.addEventListener('change', function() {
-        const sportId = this.value;
-        if (!sportId) {
-            competitionSelect.innerHTML = '<option value="">Select Competition</option>';
+    function resetCompetitions() {
+        const defaultOption = '<option value="">Select Competition</option>';
+        competitionSelect.innerHTML = defaultOption;
+    }
+
+    function loadCompetitionsForSport(sportId) {
+        resetCompetitions();
+        if (!sportId || !/^\d+$/.test(String(sportId))) {
             return;
         }
-        
-        // This would typically load from API
-        competitionSelect.innerHTML = '<option value="">Select Competition</option>';
+
+        fetch(`/api/competitions?sport_id=${encodeURIComponent(sportId)}`)
+            .then(response => response.json())
+            .then(result => {
+                if (!result.success || !Array.isArray(result.competitions)) {
+                    return;
+                }
+                competitionSelect.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select Competition';
+                competitionSelect.appendChild(defaultOption);
+                result.competitions.forEach(competition => {
+                    const option = document.createElement('option');
+                    option.value = String(competition.id);
+                    option.textContent = competition.name;
+                    competitionSelect.appendChild(option);
+                });
+            })
+            .catch(() => {
+                resetCompetitions();
+            });
+    }
+
+    sportSelect.addEventListener('change', function() {
+        loadCompetitionsForSport(this.value);
     });
+
+    loadCompetitionsForSport(sportSelect.value);
+
+    // Bookmaker tax auto-fill
+    const bookmakerId = document.getElementById('bookmaker_id');
+    const taxAmountInput = document.getElementById('tax_amount');
+    const bookmakerData = <?php echo json_encode(array_reduce($bookmakers, function($carry, $item) {
+        $carry[$item['id']] = ['name' => $item['name'], 'tax_percentage' => $item['tax_percentage'] ?? 0];
+        return $carry;
+    }, [])); ?>;
+
+    function updateTaxAmount() {
+        const selected = bookmakerId.value;
+        if (selected && bookmakerData && bookmakerData[selected]) {
+            const taxPercentage = parseFloat(bookmakerData[selected].tax_percentage) || 0;
+            const stake = parseFloat(stakeInput.value) || 0;
+            const odds = parseFloat(oddsInput.value) || 1;
+            // Tax is calculated on the payout (stake * odds), not just the stake
+            const payout = stake * odds;
+            const taxAmount = payout > 0 ? (payout * taxPercentage / 100).toFixed(2) : '0.00';
+            taxAmountInput.value = taxAmount;
+        } else {
+            taxAmountInput.value = '0.00';
+        }
+    }
+
+    bookmakerId.addEventListener('change', updateTaxAmount);
+    stakeInput.addEventListener('change', updateTaxAmount);
+    oddsInput.addEventListener('change', updateTaxAmount);
+    
+    // Initialize tax amount on page load
+    updateTaxAmount();
 });
 </script>

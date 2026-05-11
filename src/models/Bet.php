@@ -11,6 +11,60 @@ class Bet {
     }
     
     /**
+     * Get daily summary (stakes, returns, profit) between dates
+     */
+    public function getDailySummary($userId, $startDate, $endDate) {
+        $startDateTime = $startDate . ' 00:00:00';
+        $endDateExclusive = date('Y-m-d 00:00:00', strtotime($endDate . ' +1 day'));
+
+        $stmt = $this->db->prepare('
+            SELECT DATE(event_date) as day,
+                   COUNT(id) as bet_count,
+                   SUM(stake) as total_staked,
+                   SUM(CASE WHEN actual_return IS NOT NULL THEN actual_return ELSE 0 END) as total_returned,
+                   SUM(CASE WHEN actual_return IS NOT NULL THEN (actual_return - stake) ELSE 0 END) as profit_loss
+            FROM bets
+            WHERE user_id = ? AND event_date >= ? AND event_date < ?
+            GROUP BY DATE(event_date)
+        ');
+        $stmt->execute([$userId, $startDateTime, $endDateExclusive]);
+        $rows = $stmt->fetchAll();
+        $out = [];
+        foreach ($rows as $r) {
+            $out[$r['day']] = [
+                'bet_count' => (int)$r['bet_count'],
+                'total_staked' => (float)$r['total_staked'],
+                'total_returned' => (float)$r['total_returned'],
+                'profit_loss' => (float)$r['profit_loss']
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Get bets for a user between dates (grouped by date client-side)
+     */
+    public function getBetsByDateRange($userId, $startDate, $endDate) {
+        $startDateTime = $startDate . ' 00:00:00';
+        $endDateExclusive = date('Y-m-d 00:00:00', strtotime($endDate . ' +1 day'));
+
+        $stmt = $this->db->prepare('
+            SELECT b.id, b.event_name, b.event_date, b.odds, b.stake, b.status, b.actual_return
+            FROM bets b
+            WHERE b.user_id = ? AND b.event_date >= ? AND b.event_date < ?
+            ORDER BY b.event_date ASC
+        ');
+        $stmt->execute([$userId, $startDateTime, $endDateExclusive]);
+        $rows = $stmt->fetchAll();
+        $out = [];
+        foreach ($rows as $r) {
+            $d = date('Y-m-d', strtotime($r['event_date']));
+            if (!isset($out[$d])) $out[$d] = [];
+            $out[$d][] = $r;
+        }
+        return $out;
+    }
+    /**
      * Create a new bet
      */
     public function create($data) {
@@ -18,8 +72,8 @@ class Bet {
             INSERT INTO bets (
                 user_id, bookmaker_id, sport_id, competition_id,
                 event_name, event_date, bet_type, selection, odds, stake,
-                potential_return, status, each_way, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                potential_return, status, tax_amount, each_way, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ');
         
         $potentialReturn = calculatePotentialReturn($data['stake'], $data['odds']);
@@ -37,6 +91,7 @@ class Bet {
             $data['stake'],
             $potentialReturn,
             $data['status'] ?? BET_STATUS_PENDING,
+            $data['tax_amount'] ?? 0,
             $data['each_way'] ?? false,
             $data['notes'] ?? null
         ]);
@@ -51,7 +106,15 @@ class Bet {
      * Get bet by ID
      */
     public function getById($betId, $userId) {
-        $stmt = $this->db->prepare('SELECT * FROM bets WHERE id = ? AND user_id = ?');
+        $stmt = $this->db->prepare('
+            SELECT b.*, 
+                   bm.name as bookmaker_name,
+                   s.name as sport_name
+            FROM bets b
+            LEFT JOIN bookmakers bm ON b.bookmaker_id = bm.id
+            LEFT JOIN sports s ON b.sport_id = s.id
+            WHERE b.id = ? AND b.user_id = ?
+        ');
         $stmt->execute([$betId, $userId]);
         return $stmt->fetch();
     }
@@ -167,7 +230,7 @@ class Bet {
         $allowedFields = [
             'bookmaker_id', 'sport_id', 'competition_id', 'event_name',
             'event_date', 'bet_type', 'selection', 'odds', 'stake',
-            'potential_return', 'status', 'actual_return', 'cashout_amount',
+            'potential_return', 'status', 'actual_return', 'tax_amount', 'cashout_amount',
             'each_way', 'notes', 'settled_at'
         ];
         
@@ -236,42 +299,47 @@ class Bet {
             $stmt = $this->db->prepare('
                 SELECT
                     s.id,
-                    s.name,
-                    COUNT(b.id) as total_bets,
-                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as won_bets,
-                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as lost_bets,
+                    s.name as sport_name,
+                    COUNT(b.id) as bet_count,
+                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as won_count,
+                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as lost_count,
                     SUM(b.stake) as total_staked,
                     SUM(CASE WHEN b.actual_return IS NOT NULL THEN b.actual_return ELSE 0 END) as total_returned,
-                    SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit
+                    SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit_loss
                 FROM bets b
                 LEFT JOIN sports s ON b.sport_id = s.id
-                WHERE b.user_id = ? AND b.status IN (?, ?)
+                WHERE b.user_id = ? AND b.status IN (?, ?, ?)
                 GROUP BY s.id, s.name
-                ORDER BY profit DESC
+                ORDER BY profit_loss DESC
             ');
-            $stmt->execute([$userId, BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_WON, BET_STATUS_LOST]);
+            $stmt->execute([BET_STATUS_WON, BET_STATUS_LOST, $userId, BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_CASHOUT]);
         } elseif ($groupBy === 'bookmaker_id') {
             $stmt = $this->db->prepare('
                 SELECT
                     bm.id,
-                    bm.name,
-                    COUNT(b.id) as total_bets,
-                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as won_bets,
-                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as lost_bets,
+                    bm.name as bookmaker_name,
+                    COUNT(b.id) as bet_count,
+                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as won_count,
+                    SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as lost_count,
                     SUM(b.stake) as total_staked,
                     SUM(CASE WHEN b.actual_return IS NOT NULL THEN b.actual_return ELSE 0 END) as total_returned,
-                    SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit
+                    SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit_loss
                 FROM bets b
                 LEFT JOIN bookmakers bm ON b.bookmaker_id = bm.id
-                WHERE b.user_id = ? AND b.status IN (?, ?)
+                WHERE b.user_id = ? AND b.status IN (?, ?, ?)
                 GROUP BY bm.id, bm.name
-                ORDER BY profit DESC
+                ORDER BY profit_loss DESC
             ');
-            $stmt->execute([$userId, BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_WON, BET_STATUS_LOST]);
+            $stmt->execute([BET_STATUS_WON, BET_STATUS_LOST, $userId, BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_CASHOUT]);
         }
         
-        return $stmt->fetchAll();
+        // Calculate ROI for each row
+        $results = $stmt->fetchAll();
+        foreach ($results as &$row) {
+            $row['roi'] = ($row['total_staked'] > 0) ? round(($row['profit_loss'] / $row['total_staked']) * 100, 2) : 0;
+        }
+        
+        return $results;
     }
 }
-
 

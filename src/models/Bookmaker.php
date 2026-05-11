@@ -15,8 +15,8 @@ class Bookmaker {
      */
     public function create($userId, $data) {
         $stmt = $this->db->prepare('
-            INSERT INTO bookmakers (user_id, name, url, account_balance, bonus_balance, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO bookmakers (user_id, name, url, account_balance, bonus_balance, tax_percentage, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ');
         
         return $stmt->execute([
@@ -25,6 +25,7 @@ class Bookmaker {
             $data['url'] ?? null,
             $data['account_balance'] ?? 0,
             $data['bonus_balance'] ?? 0,
+            $data['tax_percentage'] ?? 0,
             $data['notes'] ?? null
         ]);
     }
@@ -63,7 +64,7 @@ class Bookmaker {
         $updates = [];
         $values = [];
         
-        $allowedFields = ['name', 'url', 'account_balance', 'bonus_balance', 'notes', 'is_archived'];
+        $allowedFields = ['name', 'url', 'account_balance', 'bonus_balance', 'tax_percentage', 'notes', 'is_archived'];
         
         foreach ($data as $key => $value) {
             if (in_array($key, $allowedFields)) {
@@ -98,24 +99,26 @@ class Bookmaker {
                 COUNT(*) as total_bets,
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as won_bets,
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as lost_bets,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as cashout_bets,
                 SUM(stake) as total_staked,
                 SUM(CASE WHEN actual_return IS NOT NULL THEN actual_return ELSE 0 END) as total_returned,
-                SUM(CASE WHEN actual_return IS NOT NULL THEN (actual_return - stake) ELSE 0 END) as profit
+                SUM(CASE WHEN actual_return IS NOT NULL THEN (actual_return - stake) ELSE 0 END) as profit_loss
             FROM bets
-            WHERE bookmaker_id = ? AND user_id = ? AND status IN (?, ?)
+            WHERE bookmaker_id = ? AND user_id = ? AND status IN (?, ?, ?)
         ');
         
         $stmt->execute([
             BET_STATUS_WON,
             BET_STATUS_LOST,
+            BET_STATUS_CASHOUT,
             $bookmakerId,
             $userId,
             BET_STATUS_WON,
-            BET_STATUS_LOST
+            BET_STATUS_LOST,
+            BET_STATUS_CASHOUT
         ]);
         
         return $stmt->fetch();
     }
 }
-
 

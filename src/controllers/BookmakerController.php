@@ -21,7 +21,7 @@ class BookmakerController {
             $bookmaker['stats'] = $stats;
             
             if ($stats['total_bets'] > 0) {
-                $bookmaker['roi'] = calculateROI($stats['profit'], $stats['total_staked']);
+                $bookmaker['roi'] = calculateROI($stats['profit_loss'], $stats['total_staked']);
                 $bookmaker['win_rate'] = round(($stats['won_bets'] / $stats['total_bets']) * 100, 2);
             } else {
                 $bookmaker['roi'] = 0;
@@ -63,6 +63,7 @@ class BookmakerController {
             'url' => sanitize($_POST['url'] ?? ''),
             'account_balance' => (float)($_POST['account_balance'] ?? 0),
             'bonus_balance' => (float)($_POST['bonus_balance'] ?? 0),
+            'tax_percentage' => min(100, max(0, (float)($_POST['tax_percentage'] ?? 0))),
             'notes' => sanitize($_POST['notes'] ?? ''),
         ];
         
@@ -73,6 +74,7 @@ class BookmakerController {
         
         $bookmakerModel = new Bookmaker();
         if ($bookmakerModel->create($userId, $data)) {
+            syncBankrollSnapshot($userId);
             setFlash('success', 'Bookmaker added successfully!');
             redirect('/bookmakers');
         } else {
@@ -128,6 +130,7 @@ class BookmakerController {
             'url' => sanitize($_POST['url'] ?? ''),
             'account_balance' => (float)($_POST['account_balance'] ?? 0),
             'bonus_balance' => (float)($_POST['bonus_balance'] ?? 0),
+            'tax_percentage' => min(100, max(0, (float)($_POST['tax_percentage'] ?? 0))),
             'notes' => sanitize($_POST['notes'] ?? ''),
         ];
         
@@ -137,6 +140,7 @@ class BookmakerController {
         }
         
         if ($bookmakerModel->update($bookmakerId, $userId, $data)) {
+            syncBankrollSnapshot($userId);
             setFlash('success', 'Bookmaker updated successfully!');
             redirect('/bookmakers');
         } else {
@@ -170,6 +174,7 @@ class BookmakerController {
         }
         
         if ($bookmakerModel->delete($bookmakerId, $userId)) {
+            syncBankrollSnapshot($userId);
             setFlash('success', 'Bookmaker deleted successfully!');
         } else {
             setFlash('error', 'Failed to delete bookmaker.');
@@ -178,5 +183,4 @@ class BookmakerController {
         redirect('/bookmakers');
     }
 }
-
 
