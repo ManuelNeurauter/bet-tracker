@@ -41,6 +41,13 @@ class DashboardController {
         // Profit by sport
         $profitBySport = $bet->getProfitByGroup($userId, 'sport_id');
         $profitByBookmaker = $bet->getProfitByGroup($userId, 'bookmaker_id');
+
+        // Calendar: include past and future dates so client-side month navigation shows data
+        // Provide a wide window (1 year back, 1 year forward)
+        $startDate = date('Y-m-d', strtotime('-365 days'));
+        $endDate = date('Y-m-d', strtotime('+365 days'));
+        $dailySummary = $bet->getDailySummary($userId, $startDate, $endDate);
+        $betsByDate = $bet->getBetsByDateRange($userId, $startDate, $endDate);
         
         include __DIR__ . '/../views/dashboard.php';
     }

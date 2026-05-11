@@ -11,6 +11,56 @@ class Bet {
     }
     
     /**
+     * Get daily summary (stakes, returns, profit) between dates
+     */
+    public function getDailySummary($userId, $startDate, $endDate) {
+        $stmt = $this->db->prepare('
+            SELECT DATE(event_date) as day,
+                   COUNT(id) as bet_count,
+                   SUM(stake) as total_staked,
+                   SUM(CASE WHEN actual_return IS NOT NULL THEN actual_return ELSE 0 END) as total_returned,
+                   SUM(CASE WHEN actual_return IS NOT NULL THEN (actual_return - stake) ELSE 0 END) as profit_loss
+            FROM bets
+            WHERE user_id = ? AND DATE(event_date) BETWEEN ? AND ?
+            GROUP BY DATE(event_date)
+        ');
+        $stmt->execute([$userId, $startDate, $endDate]);
+        $rows = $stmt->fetchAll();
+        $out = [];
+        foreach ($rows as $r) {
+            $out[$r['day']] = [
+                'bet_count' => (int)$r['bet_count'],
+                'total_staked' => (float)$r['total_staked'],
+                'total_returned' => (float)$r['total_returned'],
+                'profit_loss' => (float)$r['profit_loss']
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Get bets for a user between dates (grouped by date client-side)
+     */
+    public function getBetsByDateRange($userId, $startDate, $endDate) {
+        $stmt = $this->db->prepare('
+            SELECT b.*, s.name as sport_name, bm.name as bookmaker_name
+            FROM bets b
+            LEFT JOIN sports s ON b.sport_id = s.id
+            LEFT JOIN bookmakers bm ON b.bookmaker_id = bm.id
+            WHERE b.user_id = ? AND DATE(b.event_date) BETWEEN ? AND ?
+            ORDER BY b.event_date ASC
+        ');
+        $stmt->execute([$userId, $startDate, $endDate]);
+        $rows = $stmt->fetchAll();
+        $out = [];
+        foreach ($rows as $r) {
+            $d = date('Y-m-d', strtotime($r['event_date']));
+            if (!isset($out[$d])) $out[$d] = [];
+            $out[$d][] = $r;
+        }
+        return $out;
+    }
+    /**
      * Create a new bet
      */
     public function create($data) {
