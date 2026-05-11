@@ -215,20 +215,12 @@ function quickSettleBet(betId, status, actualReturn = null) {
         status: status,
         actualReturn: actualReturn
     };
-    
-    if (status === 'won' && !actualReturn) {
-        // For won bets, calculate potential return: stake * odds
-        const row = document.querySelector(`button[data-bet-id="${betId}"]`).closest('tr');
-        const stakeCell = row.querySelector('td:nth-child(6)'); // Stake column
-        const oddsCell = row.querySelector('td:nth-child(5)'); // Odds column
-        const stake = parseFloat(stakeCell.textContent.replace(/[^\d.-]/g, ''));
-        const odds = parseFloat(oddsCell.textContent.replace(/[^\d.-]/g, ''));
-        data.actualReturn = stake * odds;
-    } else if (status === 'lost' && !actualReturn) {
+
+    if (status === 'lost' && !actualReturn) {
         // For lost bets, actual return = 0
         data.actualReturn = 0;
     }
-    
+
     fetch('/api/bets/quick-settle', {
         method: 'POST',
         headers: {
@@ -285,9 +277,30 @@ function closeDeleteModal() {
 
 function submitDeleteForm() {
     if (!deleteBetId) return;
-    
+
     const form = document.getElementById('deleteForm');
-    form.action = '/bets/' + deleteBetId + '/delete';
-    form.submit();
+    const csrf = form.querySelector('input[name="csrf_token"]') ? form.querySelector('input[name="csrf_token"]').value : null;
+    const url = '/bets/' + deleteBetId + '/delete';
+
+    // Try fetch POST first (keeps UX snappy), fallback to form submit
+    if (window.fetch && csrf) {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'csrf_token=' + encodeURIComponent(csrf)
+        }).then(res => {
+            // If server redirected or returned OK, reload to reflect changes
+            window.location.reload();
+        }).catch(err => {
+            // Fallback to classical form submit
+            form.action = url;
+            form.submit();
+        });
+    } else {
+        form.action = url;
+        form.submit();
+    }
 }
 </script>

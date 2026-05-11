@@ -102,6 +102,11 @@
                 <input type="number" id="cashout_amount" name="cashout_amount" step="0.01" value="<?php echo $bet['cashout_amount'] ? number_format($bet['cashout_amount'], 2) : ''; ?>">
             </div>
             <?php endif; ?>
+            
+            <div class="form-group">
+                <label for="tax_amount">Tax Amount</label>
+                <input type="number" id="tax_amount" name="tax_amount" step="0.01" value="<?php echo $bet['tax_amount'] ? number_format($bet['tax_amount'], 2) : 0; ?>">
+            </div>
             <?php endif; ?>
         </div>
         
@@ -122,3 +127,36 @@
         </div>
     </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const oddsInput = document.getElementById('odds');
+    const stakeInput = document.getElementById('stake');
+    const bookmakerId = document.getElementById('bookmaker_id');
+    const taxAmountInput = document.getElementById('tax_amount');
+    
+    const bookmakerData = <?php echo json_encode(array_reduce($bookmakers, function($carry, $item) {
+        $carry[$item['id']] = ['name' => $item['name'], 'tax_percentage' => $item['tax_percentage'] ?? 0];
+        return $carry;
+    }, [])); ?>;
+
+    function updateTaxAmount() {
+        const selected = bookmakerId.value;
+        if (selected && bookmakerData && bookmakerData[selected]) {
+            const taxPercentage = parseFloat(bookmakerData[selected].tax_percentage) || 0;
+            const stake = parseFloat(stakeInput.value) || 0;
+            const odds = parseFloat(oddsInput.value) || 1;
+            // Tax is calculated on the payout (stake * odds), not just the stake
+            const payout = stake * odds;
+            const taxAmount = payout > 0 ? (payout * taxPercentage / 100).toFixed(2) : '0.00';
+            taxAmountInput.value = taxAmount;
+        } else {
+            taxAmountInput.value = '0.00';
+        }
+    }
+
+    bookmakerId.addEventListener('change', updateTaxAmount);
+    stakeInput.addEventListener('change', updateTaxAmount);
+    oddsInput.addEventListener('change', updateTaxAmount);
+});
+</script>

@@ -63,6 +63,7 @@ class BookmakerController {
             'url' => sanitize($_POST['url'] ?? ''),
             'account_balance' => (float)($_POST['account_balance'] ?? 0),
             'bonus_balance' => (float)($_POST['bonus_balance'] ?? 0),
+            'tax_percentage' => (float)($_POST['tax_percentage'] ?? 0),
             'notes' => sanitize($_POST['notes'] ?? ''),
         ];
         
@@ -129,6 +130,7 @@ class BookmakerController {
             'url' => sanitize($_POST['url'] ?? ''),
             'account_balance' => (float)($_POST['account_balance'] ?? 0),
             'bonus_balance' => (float)($_POST['bonus_balance'] ?? 0),
+            'tax_percentage' => (float)($_POST['tax_percentage'] ?? 0),
             'notes' => sanitize($_POST['notes'] ?? ''),
         ];
         

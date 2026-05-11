@@ -18,8 +18,8 @@ class Bet {
             INSERT INTO bets (
                 user_id, bookmaker_id, sport_id, competition_id,
                 event_name, event_date, bet_type, selection, odds, stake,
-                potential_return, status, each_way, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                potential_return, status, tax_amount, each_way, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ');
         
         $potentialReturn = calculatePotentialReturn($data['stake'], $data['odds']);
@@ -37,6 +37,7 @@ class Bet {
             $data['stake'],
             $potentialReturn,
             $data['status'] ?? BET_STATUS_PENDING,
+            $data['tax_amount'] ?? 0,
             $data['each_way'] ?? false,
             $data['notes'] ?? null
         ]);
@@ -175,7 +176,7 @@ class Bet {
         $allowedFields = [
             'bookmaker_id', 'sport_id', 'competition_id', 'event_name',
             'event_date', 'bet_type', 'selection', 'odds', 'stake',
-            'potential_return', 'status', 'actual_return', 'cashout_amount',
+            'potential_return', 'status', 'actual_return', 'tax_amount', 'cashout_amount',
             'each_way', 'notes', 'settled_at'
         ];
         

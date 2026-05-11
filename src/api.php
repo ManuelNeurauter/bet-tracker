@@ -87,7 +87,8 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                     (float)$bet['stake'],
                     (float)$bet['odds'],
                     $input['cashoutAmount'] ?? null,
-                    $actualReturn
+                    $actualReturn,
+                    (float)($bet['tax_amount'] ?? 0)
                 );
 
                 $updateData = [
@@ -107,14 +108,16 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                         (float)$bet['stake'],
                         (float)$bet['odds'],
                         $bet['cashout_amount'] ?? null,
-                        $bet['actual_return'] ?? null
+                        $bet['actual_return'] ?? null,
+                        (float)($bet['tax_amount'] ?? 0)
                     );
                     $newImpact = calculateSettlementImpact(
                         $status,
                         (float)$bet['stake'],
                         (float)$bet['odds'],
                         $input['cashoutAmount'] ?? null,
-                        $actualReturn
+                        $actualReturn,
+                        (float)($bet['tax_amount'] ?? 0)
                     );
 
                     $bookmakerId = $bet['bookmaker_id'];

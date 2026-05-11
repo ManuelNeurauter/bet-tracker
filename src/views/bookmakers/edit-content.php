@@ -25,6 +25,11 @@
         </div>
         
         <div class="form-group">
+            <label for="tax_percentage">Tax Percentage (%)</label>
+            <input type="number" id="tax_percentage" name="tax_percentage" step="0.01" min="0" max="100" value="<?php echo number_format($bookmaker['tax_percentage'] ?? 0, 2); ?>" placeholder="E.g., 5 for 5%">
+        </div>
+        
+        <div class="form-group">
             <label for="notes">Notes</label>
             <textarea id="notes" name="notes" rows="4"><?php echo sanitize($bookmaker['notes'] ?? ''); ?></textarea>
         </div>

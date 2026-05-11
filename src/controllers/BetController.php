@@ -43,11 +43,21 @@ class BetController {
         
         $userId = getCurrentUserId();
         
+        // Handle competition_id - only accept numeric values or 'other'/'empty'
+        $competitionId = null;
+        if (!empty($_POST['competition_id']) && $_POST['competition_id'] !== 'other') {
+            // Check if it's a numeric ID or a text name (from the dynamic competition list)
+            if (is_numeric($_POST['competition_id'])) {
+                $competitionId = (int)$_POST['competition_id'];
+            }
+            // If it's a text name (like "Premier League"), we ignore it and set to null
+        }
+        
         $data = [
             'user_id' => $userId,
             'bookmaker_id' => !empty($_POST['bookmaker_id']) ? (int)$_POST['bookmaker_id'] : null,
             'sport_id' => !empty($_POST['sport_id']) ? (int)$_POST['sport_id'] : null,
-            'competition_id' => !empty($_POST['competition_id']) ? (int)$_POST['competition_id'] : null,
+            'competition_id' => $competitionId,
             'event_name' => sanitize($_POST['event_name'] ?? ''),
             'event_date' => !empty($_POST['event_date']) ? $_POST['event_date'] : null,
             'bet_type' => sanitize($_POST['bet_type'] ?? BET_TYPE_SINGLE),
@@ -55,6 +65,7 @@ class BetController {
             'odds' => (float)($_POST['odds'] ?? 1.0),
             'stake' => (float)($_POST['stake'] ?? 0),
             'status' => sanitize($_POST['status'] ?? BET_STATUS_PENDING),
+            'tax_amount' => (float)($_POST['tax_amount'] ?? 0),
             'each_way' => isset($_POST['each_way']) ? 1 : 0,
             'notes' => sanitize($_POST['notes'] ?? ''),
         ];
@@ -73,8 +84,8 @@ class BetController {
             redirect('/bets/add');
         }
 
-        $settledReturn = calculateSettlementReturn($data['status'], $data['stake'], $data['odds']);
-        $settlementImpact = calculateSettlementImpact($data['status'], $data['stake'], $data['odds']);
+        $settledReturn = calculateSettlementReturn($data['status'], $data['stake'], $data['odds'], null, null, $data['tax_amount']);
+        $settlementImpact = calculateSettlementImpact($data['status'], $data['stake'], $data['odds'], null, null, $data['tax_amount']);
 
         if ($settledReturn !== null) {
             $bet->update($betId, $userId, [
@@ -194,10 +205,20 @@ class BetController {
             die('Bet not found');
         }
         
+        // Handle competition_id - only accept numeric values or 'other'/'empty'
+        $competitionId = null;
+        if (!empty($_POST['competition_id']) && $_POST['competition_id'] !== 'other') {
+            // Check if it's a numeric ID or a text name (from the dynamic competition list)
+            if (is_numeric($_POST['competition_id'])) {
+                $competitionId = (int)$_POST['competition_id'];
+            }
+            // If it's a text name (like "Premier League"), we ignore it and set to null
+        }
+        
         $data = [
             'bookmaker_id' => !empty($_POST['bookmaker_id']) ? (int)$_POST['bookmaker_id'] : null,
             'sport_id' => !empty($_POST['sport_id']) ? (int)$_POST['sport_id'] : null,
-            'competition_id' => !empty($_POST['competition_id']) ? (int)$_POST['competition_id'] : null,
+            'competition_id' => $competitionId,
             'event_name' => sanitize($_POST['event_name'] ?? ''),
             'event_date' => !empty($_POST['event_date']) ? $_POST['event_date'] : null,
             'bet_type' => sanitize($_POST['bet_type'] ?? BET_TYPE_SINGLE),
@@ -206,6 +227,7 @@ class BetController {
             'stake' => (float)($_POST['stake'] ?? 0),
             'status' => sanitize($_POST['status'] ?? BET_STATUS_PENDING),
             'actual_return' => !empty($_POST['actual_return']) ? (float)$_POST['actual_return'] : null,
+            'tax_amount' => (float)($_POST['tax_amount'] ?? 0),
             'cashout_amount' => !empty($_POST['cashout_amount']) ? (float)$_POST['cashout_amount'] : null,
             'each_way' => isset($_POST['each_way']) ? 1 : 0,
             'notes' => sanitize($_POST['notes'] ?? ''),
@@ -216,7 +238,8 @@ class BetController {
             $data['stake'],
             $data['odds'],
             $data['cashout_amount'],
-            $data['actual_return']
+            $data['actual_return'],
+            $data['tax_amount']
         );
 
         if ($data['actual_return'] !== null && $data['status'] !== BET_STATUS_PENDING) {
@@ -234,14 +257,16 @@ class BetController {
             (float)$currentBet['stake'],
             (float)$currentBet['odds'],
             $currentBet['cashout_amount'] ?? null,
-            $currentBet['actual_return'] ?? null
+            $currentBet['actual_return'] ?? null,
+            (float)($currentBet['tax_amount'] ?? 0)
         );
         $newImpact = calculateSettlementImpact(
             $data['status'],
             $data['stake'],
             $data['odds'],
             $data['cashout_amount'],
-            $data['actual_return']
+            $data['actual_return'],
+            $data['tax_amount']
         );
 
         $bookmakerModel = new Bookmaker();
@@ -357,7 +382,8 @@ class BetController {
             (float)$currentBet['stake'],
             (float)$currentBet['odds'],
             $currentBet['cashout_amount'] ?? null,
-            $currentBet['actual_return'] ?? null
+            $currentBet['actual_return'] ?? null,
+            (float)($currentBet['tax_amount'] ?? 0)
         );
         
         if ($betModel->delete($betId, $userId)) {

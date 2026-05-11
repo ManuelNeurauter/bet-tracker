@@ -116,13 +116,15 @@ function calculatePotentialReturn($stake, $odds) {
 /**
  * Calculate settled return based on bet status
  */
-function calculateSettlementReturn($status, $stake, $odds = 1.0, $cashoutAmount = null, $actualReturn = null) {
+function calculateSettlementReturn($status, $stake, $odds = 1.0, $cashoutAmount = null, $actualReturn = null, $taxAmount = 0) {
     switch ($status) {
         case BET_STATUS_WON:
             if ($actualReturn !== null) {
                 return round((float)$actualReturn, 2);
             }
-            return calculatePotentialReturn($stake, $odds);
+            // For won bets: payout - tax
+            $payout = calculatePotentialReturn($stake, $odds);
+            return round($payout - $taxAmount, 2);
         case BET_STATUS_LOST:
             if ($actualReturn !== null) {
                 return round((float)$actualReturn, 2);
@@ -135,7 +137,8 @@ function calculateSettlementReturn($status, $stake, $odds = 1.0, $cashoutAmount 
                 return round((float)$actualReturn, 2);
             }
             if ($cashoutAmount !== null) {
-                return round((float)$cashoutAmount, 2);
+                // For cashout: cashout amount - tax
+                return round((float)$cashoutAmount - $taxAmount, 2);
             }
             return 0;
         default:
@@ -146,12 +149,12 @@ function calculateSettlementReturn($status, $stake, $odds = 1.0, $cashoutAmount 
 /**
  * Calculate bankroll impact for a bet settlement
  */
-function calculateSettlementImpact($status, $stake, $odds = 1.0, $cashoutAmount = null, $actualReturn = null) {
+function calculateSettlementImpact($status, $stake, $odds = 1.0, $cashoutAmount = null, $actualReturn = null, $taxAmount = 0) {
     if ($status === BET_STATUS_PENDING || $status === BET_STATUS_VOID) {
         return 0;
     }
 
-    $settledReturn = calculateSettlementReturn($status, $stake, $odds, $cashoutAmount, $actualReturn);
+    $settledReturn = calculateSettlementReturn($status, $stake, $odds, $cashoutAmount, $actualReturn, $taxAmount);
 
     if ($settledReturn === null) {
         return 0;

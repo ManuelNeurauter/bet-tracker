@@ -25,6 +25,11 @@
         </div>
         
         <div class="form-group">
+            <label for="tax_percentage">Tax Percentage (%)</label>
+            <input type="number" id="tax_percentage" name="tax_percentage" step="0.01" min="0" max="100" value="0" placeholder="E.g., 5 for 5%">
+        </div>
+        
+        <div class="form-group">
             <label for="notes">Notes</label>
             <textarea id="notes" name="notes" rows="4" placeholder="E.g., promotions, restrictions, etc."></textarea>
         </div>

@@ -15,8 +15,8 @@ class Bookmaker {
      */
     public function create($userId, $data) {
         $stmt = $this->db->prepare('
-            INSERT INTO bookmakers (user_id, name, url, account_balance, bonus_balance, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO bookmakers (user_id, name, url, account_balance, bonus_balance, tax_percentage, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ');
         
         return $stmt->execute([
@@ -25,6 +25,7 @@ class Bookmaker {
             $data['url'] ?? null,
             $data['account_balance'] ?? 0,
             $data['bonus_balance'] ?? 0,
+            $data['tax_percentage'] ?? 0,
             $data['notes'] ?? null
         ]);
     }
@@ -63,7 +64,7 @@ class Bookmaker {
         $updates = [];
         $values = [];
         
-        $allowedFields = ['name', 'url', 'account_balance', 'bonus_balance', 'notes', 'is_archived'];
+        $allowedFields = ['name', 'url', 'account_balance', 'bonus_balance', 'tax_percentage', 'notes', 'is_archived'];
         
         foreach ($data as $key => $value) {
             if (in_array($key, $allowedFields)) {
