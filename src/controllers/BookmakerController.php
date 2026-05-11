@@ -21,7 +21,7 @@ class BookmakerController {
             $bookmaker['stats'] = $stats;
             
             if ($stats['total_bets'] > 0) {
-                $bookmaker['roi'] = calculateROI($stats['profit_loss'] ?? $stats['profit'], $stats['total_staked']);
+                $bookmaker['roi'] = calculateROI($stats['profit_loss'], $stats['total_staked']);
                 $bookmaker['win_rate'] = round(($stats['won_bets'] / $stats['total_bets']) * 100, 2);
             } else {
                 $bookmaker['roi'] = 0;
@@ -63,7 +63,7 @@ class BookmakerController {
             'url' => sanitize($_POST['url'] ?? ''),
             'account_balance' => (float)($_POST['account_balance'] ?? 0),
             'bonus_balance' => (float)($_POST['bonus_balance'] ?? 0),
-            'tax_percentage' => (float)($_POST['tax_percentage'] ?? 0),
+            'tax_percentage' => min(100, max(0, (float)($_POST['tax_percentage'] ?? 0))),
             'notes' => sanitize($_POST['notes'] ?? ''),
         ];
         
@@ -130,7 +130,7 @@ class BookmakerController {
             'url' => sanitize($_POST['url'] ?? ''),
             'account_balance' => (float)($_POST['account_balance'] ?? 0),
             'bonus_balance' => (float)($_POST['bonus_balance'] ?? 0),
-            'tax_percentage' => (float)($_POST['tax_percentage'] ?? 0),
+            'tax_percentage' => min(100, max(0, (float)($_POST['tax_percentage'] ?? 0))),
             'notes' => sanitize($_POST['notes'] ?? ''),
         ];
         
@@ -183,5 +183,4 @@ class BookmakerController {
         redirect('/bookmakers');
     }
 }
-
 

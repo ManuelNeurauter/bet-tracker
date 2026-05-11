@@ -117,7 +117,7 @@ class User {
                 SUM(CASE WHEN actual_return IS NOT NULL THEN (actual_return - stake) ELSE 0 END) as total_profit,
                 AVG(CASE WHEN status IN (?, ?, ?) THEN odds ELSE NULL END) as avg_odds
             FROM bets
-            WHERE user_id = ? AND status != ?
+            WHERE user_id = ? AND status IN (?, ?, ?)
         ');
         
         $stmt->execute([
@@ -131,7 +131,9 @@ class User {
             BET_STATUS_LOST,
             BET_STATUS_CASHOUT,
             $userId,
-            BET_STATUS_PENDING
+            BET_STATUS_WON,
+            BET_STATUS_LOST,
+            BET_STATUS_CASHOUT
         ]);
         
         return $stmt->fetch();
@@ -181,22 +183,24 @@ class User {
      * Get bankroll history for charting
      */
     public function getBankrollHistory($userId, $limit = 30) {
+        $limit = (int)$limit;
+        if ($limit <= 0) {
+            $limit = 30;
+        }
+
         $stmt = $this->db->prepare('
             SELECT snapshot_date, balance
             FROM bankroll_snapshots
             WHERE user_id = ?
-            ORDER BY snapshot_date ASC, id ASC
+            ORDER BY snapshot_date DESC, id DESC
+            LIMIT ?
         ');
-        $stmt->execute([$userId]);
+        $stmt->bindValue(1, $userId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+        $stmt->execute();
 
         $history = $stmt->fetchAll();
-
-        if ($limit > 0 && count($history) > $limit) {
-            $history = array_slice($history, -$limit);
-        }
-
-        return $history;
+        return array_reverse($history);
     }
 }
-
 

@@ -14,6 +14,9 @@ class Bet {
      * Get daily summary (stakes, returns, profit) between dates
      */
     public function getDailySummary($userId, $startDate, $endDate) {
+        $startDateTime = $startDate . ' 00:00:00';
+        $endDateExclusive = date('Y-m-d 00:00:00', strtotime($endDate . ' +1 day'));
+
         $stmt = $this->db->prepare('
             SELECT DATE(event_date) as day,
                    COUNT(id) as bet_count,
@@ -21,10 +24,10 @@ class Bet {
                    SUM(CASE WHEN actual_return IS NOT NULL THEN actual_return ELSE 0 END) as total_returned,
                    SUM(CASE WHEN actual_return IS NOT NULL THEN (actual_return - stake) ELSE 0 END) as profit_loss
             FROM bets
-            WHERE user_id = ? AND DATE(event_date) BETWEEN ? AND ?
+            WHERE user_id = ? AND event_date >= ? AND event_date < ?
             GROUP BY DATE(event_date)
         ');
-        $stmt->execute([$userId, $startDate, $endDate]);
+        $stmt->execute([$userId, $startDateTime, $endDateExclusive]);
         $rows = $stmt->fetchAll();
         $out = [];
         foreach ($rows as $r) {
@@ -42,15 +45,16 @@ class Bet {
      * Get bets for a user between dates (grouped by date client-side)
      */
     public function getBetsByDateRange($userId, $startDate, $endDate) {
+        $startDateTime = $startDate . ' 00:00:00';
+        $endDateExclusive = date('Y-m-d 00:00:00', strtotime($endDate . ' +1 day'));
+
         $stmt = $this->db->prepare('
-            SELECT b.*, s.name as sport_name, bm.name as bookmaker_name
+            SELECT b.id, b.event_name, b.event_date, b.odds, b.stake, b.status, b.actual_return
             FROM bets b
-            LEFT JOIN sports s ON b.sport_id = s.id
-            LEFT JOIN bookmakers bm ON b.bookmaker_id = bm.id
-            WHERE b.user_id = ? AND DATE(b.event_date) BETWEEN ? AND ?
+            WHERE b.user_id = ? AND b.event_date >= ? AND b.event_date < ?
             ORDER BY b.event_date ASC
         ');
-        $stmt->execute([$userId, $startDate, $endDate]);
+        $stmt->execute([$userId, $startDateTime, $endDateExclusive]);
         $rows = $stmt->fetchAll();
         $out = [];
         foreach ($rows as $r) {
@@ -338,5 +342,4 @@ class Bet {
         return $results;
     }
 }
-
 
