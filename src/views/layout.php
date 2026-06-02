@@ -12,7 +12,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 </head>
 <body class="<?php echo isLoggedIn() ? 'app-shell authenticated-shell' : 'app-shell guest-shell'; ?>">
-    <?php $currentRoute = $request_uri ?? ''; ?>
+    <?php
+    /* Derive the current route directly so it works regardless of call scope */
+    $currentRoute = ltrim(rtrim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/'), '/');
+    ?>
     <div class="app-shell-frame">
         <header class="app-header">
             <div class="header-content">

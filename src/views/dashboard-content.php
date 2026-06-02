@@ -196,16 +196,18 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    var styles      = getComputedStyle(document.documentElement);
-    var colorPrimary = 'oklch(0.58 0.21 270)';
-    var colorAccent  = 'oklch(0.74 0.14 75)';
-    var colorSuccess = styles.getPropertyValue('--success').trim() || 'oklch(0.74 0.18 145)';
-    var colorDanger  = styles.getPropertyValue('--danger').trim()  || 'oklch(0.67 0.22 25)';
-    var tickColor    = 'oklch(0.50 0.022 270)';
-    var gridColor    = 'oklch(0.28 0.032 270 / 0.35)';
+    /* Chart.js 3.x only understands hex/rgb/hsl — not oklch.
+       These are hsla() equivalents of the Deep Violet + Amber palette. */
+    var colorPrimary     = 'hsla(262, 70%, 54%, 1)';    /* --primary  */
+    var colorPrimaryFill = 'hsla(262, 70%, 54%, 0.28)';
+    var colorAccent      = 'hsla(50,  60%, 50%, 0.85)';  /* --accent (amber) */
+    var colorLoss        = 'hsla(12,  50%, 44%, 0.82)';  /* warm dim red — in-palette */
+    var colorPointHover  = 'hsla(50,  60%, 56%, 1)';
+    var tickColor        = 'hsla(258, 8%,  40%, 1)';     /* --text-3 */
+    var gridColor        = 'hsla(260, 18%, 22%, 0.40)';  /* --border */
 
     Chart.defaults.color = tickColor;
-    Chart.defaults.font.family = "'Outfit', sans-serif";
+    Chart.defaults.font.family = "'Inter', sans-serif";
 
     var bankrollHistory = <?php echo json_encode($bankrollHistory); ?>;
     var bankrollLabels  = bankrollHistory.map(function(p) { return p.snapshot_date; });
@@ -216,8 +218,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (bankrollCtx) {
         var ctx2d = bankrollCtx.getContext('2d');
         var bankrollGradient = ctx2d.createLinearGradient(0, 0, 0, 260);
-        bankrollGradient.addColorStop(0, 'oklch(0.58 0.21 270 / 0.30)');
-        bankrollGradient.addColorStop(1, 'oklch(0.58 0.21 270 / 0.02)');
+        bankrollGradient.addColorStop(0, 'hsla(262, 70%, 54%, 0.30)');
+        bankrollGradient.addColorStop(1, 'hsla(262, 70%, 54%, 0.02)');
 
         new Chart(bankrollCtx, {
             type: 'line',
@@ -232,10 +234,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     tension: 0.4,
                     pointRadius: 3,
                     pointBackgroundColor: colorPrimary,
-                    pointBorderColor: 'oklch(0.14 0.028 270)',
+                    pointBorderColor: 'hsla(262, 30%, 12%, 1)',
                     pointBorderWidth: 2,
                     pointHoverRadius: 6,
-                    pointHoverBackgroundColor: colorAccent,
+                    pointHoverBackgroundColor: colorPointHover,
                     borderWidth: 2
                 }]
             },
@@ -252,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Sport P&L chart — accent amber for profit, danger red for loss
+    // Sport P&L chart — amber for profit, dim warm-red for loss (in-palette, no semantic green)
     var sportCtx = document.getElementById('sportChart');
     if (sportCtx) {
         var profitBySport = <?php echo json_encode($profitBySport); ?>;
@@ -264,8 +266,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     data: profitBySport.map(function(r) { return Number(r.profit_loss || r.profit || 0); }),
                     backgroundColor: profitBySport.map(function(r) {
                         return Number(r.profit_loss || r.profit || 0) >= 0
-                            ? 'oklch(0.74 0.14 75 / 0.75)'
-                            : 'oklch(0.67 0.22 25 / 0.70)';
+                            ? colorAccent
+                            : colorLoss;
                     }),
                     borderRadius: 4,
                     borderSkipped: false
