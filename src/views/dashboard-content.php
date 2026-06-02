@@ -17,31 +17,54 @@
     <div class="kpi-grid">
         <div class="kpi-card kpi-card--primary">
             <div class="kpi-label">Total Profit / Loss</div>
-            <div class="kpi-value <?php echo $totalProfit >= 0 ? 'positive' : 'negative'; ?>">
+            <div class="kpi-value <?php echo $totalProfit >= 0 ? 'positive' : 'negative'; ?>"
+                 data-countup="<?php echo $totalProfit; ?>"
+                 data-countup-fmt="currency"
+                 data-countup-currency="<?php echo $userData['currency']; ?>">
                 <?php echo formatCurrency($totalProfit, $userData['currency']); ?>
             </div>
         </div>
         <div class="kpi-card kpi-card--primary">
             <div class="kpi-label">ROI</div>
-            <div class="kpi-value"><?php echo $roi; ?>%</div>
+            <div class="kpi-value"
+                 data-countup="<?php echo $roi; ?>"
+                 data-countup-fmt="percent">
+                <?php echo $roi; ?>%
+            </div>
         </div>
         <div class="kpi-card">
             <div class="kpi-label">Win Rate</div>
-            <div class="kpi-value"><?php echo $winRate; ?>%</div>
+            <div class="kpi-value"
+                 data-countup="<?php echo $winRate; ?>"
+                 data-countup-fmt="percent">
+                <?php echo $winRate; ?>%
+            </div>
         </div>
         <div class="kpi-card">
             <div class="kpi-label">Total Bets</div>
-            <div class="kpi-value"><?php echo $totalBets; ?></div>
+            <div class="kpi-value"
+                 data-countup="<?php echo $totalBets; ?>"
+                 data-countup-fmt="integer">
+                <?php echo $totalBets; ?>
+            </div>
         </div>
         <div class="kpi-card">
             <div class="kpi-label kpi-label--with-info">
                 <abbr title="Yield is your profit as a percentage of total amount wagered (Profit ÷ Total Staked × 100). Higher means better returns relative to what you risked.">Yield</abbr>
             </div>
-            <div class="kpi-value"><?php echo $yield; ?>%</div>
+            <div class="kpi-value"
+                 data-countup="<?php echo $yield; ?>"
+                 data-countup-fmt="percent">
+                <?php echo $yield; ?>%
+            </div>
         </div>
         <div class="kpi-card">
             <div class="kpi-label">Avg Odds</div>
-            <div class="kpi-value"><?php echo number_format($avgOdds, 2); ?></div>
+            <div class="kpi-value"
+                 data-countup="<?php echo $avgOdds; ?>"
+                 data-countup-fmt="decimal">
+                <?php echo number_format($avgOdds, 2); ?>
+            </div>
         </div>
     </div>
 
@@ -173,22 +196,28 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Read chart colors from CSS variables so they stay in sync with the theme
-    var styles = getComputedStyle(document.documentElement);
-    var colorSuccess = styles.getPropertyValue('--success').trim() || '#7cf7c4';
-    var colorDanger  = styles.getPropertyValue('--danger').trim()  || '#ff7a8a';
+    var styles      = getComputedStyle(document.documentElement);
+    var colorPrimary = 'oklch(0.58 0.21 270)';
+    var colorAccent  = 'oklch(0.74 0.14 75)';
+    var colorSuccess = styles.getPropertyValue('--success').trim() || 'oklch(0.74 0.18 145)';
+    var colorDanger  = styles.getPropertyValue('--danger').trim()  || 'oklch(0.67 0.22 25)';
+    var tickColor    = 'oklch(0.50 0.022 270)';
+    var gridColor    = 'oklch(0.28 0.032 270 / 0.35)';
+
+    Chart.defaults.color = tickColor;
+    Chart.defaults.font.family = "'Outfit', sans-serif";
 
     var bankrollHistory = <?php echo json_encode($bankrollHistory); ?>;
     var bankrollLabels  = bankrollHistory.map(function(p) { return p.snapshot_date; });
     var bankrollValues  = bankrollHistory.map(function(p) { return Number(p.balance); });
 
-    // Bankroll chart
+    // Bankroll chart — indigo line with violet gradient fill
     var bankrollCtx = document.getElementById('bankrollChart');
     if (bankrollCtx) {
         var ctx2d = bankrollCtx.getContext('2d');
         var bankrollGradient = ctx2d.createLinearGradient(0, 0, 0, 260);
-        bankrollGradient.addColorStop(0, 'rgba(124, 247, 196, 0.28)');
-        bankrollGradient.addColorStop(1, 'rgba(124, 247, 196, 0.02)');
+        bankrollGradient.addColorStop(0, 'oklch(0.58 0.21 270 / 0.30)');
+        bankrollGradient.addColorStop(1, 'oklch(0.58 0.21 270 / 0.02)');
 
         new Chart(bankrollCtx, {
             type: 'line',
@@ -197,27 +226,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 datasets: [{
                     label: 'Bankroll',
                     data: bankrollValues,
-                    borderColor: colorSuccess,
+                    borderColor: colorPrimary,
                     backgroundColor: bankrollGradient,
                     fill: true,
-                    tension: 0.35,
+                    tension: 0.4,
                     pointRadius: 3,
-                    pointHoverRadius: 5
+                    pointBackgroundColor: colorPrimary,
+                    pointBorderColor: 'oklch(0.14 0.028 270)',
+                    pointBorderWidth: 2,
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: colorAccent,
+                    borderWidth: 2
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: { duration: 800, easing: 'easeOutQuart' },
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.08)' } },
-                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.08)' } }
+                    x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } },
+                    y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } }
                 }
             }
         });
     }
 
-    // Sport P&L chart
+    // Sport P&L chart — accent amber for profit, danger red for loss
     var sportCtx = document.getElementById('sportChart');
     if (sportCtx) {
         var profitBySport = <?php echo json_encode($profitBySport); ?>;
@@ -228,17 +263,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 datasets: [{
                     data: profitBySport.map(function(r) { return Number(r.profit_loss || r.profit || 0); }),
                     backgroundColor: profitBySport.map(function(r) {
-                        return Number(r.profit_loss || r.profit || 0) >= 0 ? colorSuccess : colorDanger;
-                    })
+                        return Number(r.profit_loss || r.profit || 0) >= 0
+                            ? 'oklch(0.74 0.14 75 / 0.75)'
+                            : 'oklch(0.67 0.22 25 / 0.70)';
+                    }),
+                    borderRadius: 4,
+                    borderSkipped: false
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: { duration: 700, easing: 'easeOutQuart' },
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.08)' } },
-                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.08)' } }
+                    x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: 'transparent' } },
+                    y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } }
                 }
             }
         });
@@ -467,4 +507,59 @@ document.addEventListener('DOMContentLoaded', function() {
 
     renderCalendar();
 });
+
+/* ── KPI countup animation ─────────────────────────────────────── */
+(function () {
+    var DURATION = 900;
+    var DELAY    = 300;
+
+    function easeOutExpo(t) {
+        return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+    }
+
+    function formatValue(val, fmt, cur) {
+        if (fmt === 'currency') {
+            return formatCurrency(val, cur || 'USD');
+        } else if (fmt === 'percent') {
+            return (val >= 0 ? '' : '') + Number(val).toFixed(2) + '%';
+        } else if (fmt === 'integer') {
+            return Math.round(val).toString();
+        } else {
+            return Number(val).toFixed(2);
+        }
+    }
+
+    function animateCountup(el) {
+        var target  = parseFloat(el.dataset.countup);
+        var fmt     = el.dataset.countupFmt   || 'integer';
+        var cur     = el.dataset.countupCurrency || 'USD';
+        if (isNaN(target)) return;
+
+        var negative  = target < 0;
+        var absTarget = Math.abs(target);
+        var start     = null;
+
+        function step(ts) {
+            if (!start) start = ts;
+            var elapsed  = ts - start;
+            var progress = Math.min(elapsed / DURATION, 1);
+            var eased    = easeOutExpo(progress);
+            var current  = negative ? -(absTarget * eased) : absTarget * eased;
+            el.textContent = formatValue(current, fmt, cur);
+            if (progress < 1) {
+                requestAnimationFrame(step);
+            } else {
+                el.textContent = formatValue(target, fmt, cur);
+            }
+        }
+
+        setTimeout(function () {
+            requestAnimationFrame(step);
+        }, DELAY);
+    }
+
+    document.querySelectorAll('[data-countup]').forEach(function (el) {
+        animateCountup(el);
+    });
+})();
 </script>
