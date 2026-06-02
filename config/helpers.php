@@ -176,13 +176,6 @@ function syncBankrollSnapshot($userId) {
 }
 
 /**
- * Calculate profit/loss
- */
-function calculateProfit($actualReturn, $stake) {
-    return round($actualReturn - $stake, 2);
-}
-
-/**
  * Calculate ROI percentage
  */
 function calculateROI($profit, $totalStaked) {
@@ -196,21 +189,6 @@ function calculateROI($profit, $totalStaked) {
 function calculateYield($profit, $totalReturned) {
     if ($totalReturned == 0) return 0;
     return round(($profit / $totalReturned) * 100, 2);
-}
-
-/**
- * Calculate Kelly Criterion stake recommendation
- */
-function calculateKellyCriterion($odds, $winProbability, $bankroll) {
-    if ($winProbability <= 0 || $winProbability >= 1) return 0;
-    
-    $impliedProbability = 1 / $odds;
-    $edge = ($winProbability - $impliedProbability) / $impliedProbability;
-    
-    if ($edge <= 0) return 0;
-    
-    $kellyFraction = $edge / ($odds - 1);
-    return round($bankroll * $kellyFraction, 2);
 }
 
 /**
@@ -236,27 +214,6 @@ function formatDate($date, $format = 'Y-m-d H:i') {
         return 'N/A';
     }
     return date($format, strtotime($date));
-}
-
-/**
- * Get time ago string
- */
-function timeAgo($datetime) {
-    $time = strtotime($datetime);
-    $now = time();
-    $diff = $now - $time;
-    
-    if ($diff < 60) {
-        return 'just now';
-    } elseif ($diff < 3600) {
-        return floor($diff / 60) . ' minutes ago';
-    } elseif ($diff < 86400) {
-        return floor($diff / 3600) . ' hours ago';
-    } elseif ($diff < 604800) {
-        return floor($diff / 86400) . ' days ago';
-    } else {
-        return floor($diff / 604800) . ' weeks ago';
-    }
 }
 
 /**

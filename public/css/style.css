@@ -2,6 +2,19 @@
    BetLedger - Bootstrap Theme Layer
    ======================================== */
 
+/* Screen-reader only: visually hidden but announced */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 :root {
     --bg-page: #07111f;
     --bg-surface: rgba(11, 18, 32, 0.78);
@@ -368,6 +381,7 @@ small {
 .kpi-card,
 .dashboard-section,
 .chart-container,
+.calendar-container,
 .detail-card,
 .bookmaker-card,
 .tag-card,
@@ -397,7 +411,11 @@ small {
 }
 
 .kpi-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.kpi-card--primary {
+    grid-column: span 2;
 }
 
 .metrics-grid {
@@ -445,7 +463,10 @@ small {
     color: var(--danger);
 }
 
-.charts-row,
+.charts-row {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
 .dashboard-row {
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
@@ -483,15 +504,12 @@ small {
 }
 
 .pending-bet-card {
-    padding: 1rem 1.1rem;
+    padding: 0.85rem 1rem;
     display: grid;
-    gap: 0.7rem;
+    gap: 0.55rem;
 }
 
-.bet-event,
-.bet-odds,
-.bet-stake,
-.bet-return {
+.bet-event {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
@@ -501,11 +519,9 @@ small {
     color: var(--text-primary);
 }
 
-.bet-event .date,
-.bet-odds .label,
-.bet-stake .label,
-.bet-return .label {
+.bet-event .date {
     color: var(--text-tertiary);
+    white-space: nowrap;
 }
 
 .filters-panel {
@@ -750,20 +766,216 @@ textarea:disabled {
     margin-top: 0.5rem;
 }
 
-/* Dashboard-specific quick action tweaks: align add button to the right and reduce oversized min-width */
-.dashboard-container .quick-actions {
-    justify-content: flex-end;
-    margin-top: 0.25rem;
-}
-
-.dashboard-container .quick-actions .btn {
-    min-width: 140px; /* smaller on dashboard */
-}
-
 /* Ensure 'View All Bets' link inside dashboard section has appropriate spacing */
 .dashboard-section > a.btn {
     margin-top: 0.75rem;
     display: inline-block;
+}
+
+/* Dashboard header: greeting + primary CTA.
+   Negative margin-bottom pulls KPI grid closer — they read as one unit. */
+.dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    margin-bottom: calc(var(--spacing-sm) * -1);
+}
+
+.dashboard-header h1 {
+    margin: 0;
+}
+
+/* KPI primary cards: P&L and ROI get more visual prominence */
+.kpi-card--primary {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.04));
+    border-color: var(--border-color-strong);
+}
+
+.kpi-card--primary .kpi-value {
+    font-size: clamp(1.7rem, 2.5vw, 2.4rem);
+}
+
+/* KPI label with info tooltip (Yield) */
+.kpi-label--with-info {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.kpi-label--with-info abbr {
+    text-decoration: underline dotted rgba(148, 163, 184, 0.5);
+    cursor: help;
+}
+
+/* Calendar header replaces inline styles */
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.calendar-header h3 {
+    margin: 0;
+}
+
+.calendar-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.calendar-month-label {
+    margin: 0 0.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    min-width: 9ch;
+    text-align: center;
+}
+
+/* Calendar collapsible: toggle hides calendar grid and weekday headers */
+.weekday-headers,
+#miniCalendar {
+    transition: opacity 200ms ease, max-height 240ms ease;
+    max-height: 600px;
+    overflow: hidden;
+}
+
+.calendar-container.is-collapsed .weekday-headers,
+.calendar-container.is-collapsed #miniCalendar {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    pointer-events: none;
+}
+
+/* Collapsed calendar nav arrows are hidden — no month to navigate */
+.calendar-container.is-collapsed .calendar-nav {
+    visibility: hidden;
+}
+
+/* Pending bets empty state */
+.pending-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 2rem 1rem;
+    color: var(--text-tertiary);
+    text-align: center;
+}
+
+.pending-empty-state svg {
+    opacity: 0.55;
+}
+
+.pending-empty-state span {
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+}
+
+/* Pending count badge in section heading */
+.pending-count {
+    font-weight: 400;
+    color: var(--text-tertiary);
+    font-size: 0.9em;
+}
+
+/* Compact pending bet card: one row of key metrics below the event name */
+.pending-bet-meta {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.pending-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.stat-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-tertiary);
+    font-weight: 400;
+}
+
+/* Bets table overflow on narrow viewports */
+.bets-table {
+    overflow-x: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .weekday-headers,
+    #miniCalendar {
+        transition: none;
+    }
+}
+
+/* ── Detail zone layout ──────────────────────────────────────────────
+   Three-column lower section: Recent Bets | Calendar | Pending Bets.
+   DOM order: recent, calendar, pending. On tablet the calendar drops
+   below the two bet sections via order; on mobile all stack.
+   ─────────────────────────────────────────────────────────────────── */
+.dashboard-row--3col {
+    grid-template-columns: 2fr minmax(260px, 1.2fr) 1fr;
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+    margin-top: var(--spacing-sm);
+}
+
+@media (max-width: 1100px) {
+    .dashboard-row--3col {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .dashboard-row--3col .calendar-container {
+        grid-column: 1 / -1;
+        order: 3;
+    }
+
+    .dashboard-row--3col .dashboard-section--pending {
+        order: 2;
+    }
+}
+
+@media (max-width: 600px) {
+    .dashboard-row--3col {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-row--3col .calendar-container,
+    .dashboard-row--3col .dashboard-section--pending {
+        order: unset;
+        grid-column: auto;
+    }
+}
+
+/* Calendar column sizing within the 3-col grid */
+.dashboard-row--3col .calendar-container {
+    min-width: 0;
+}
+
+.dashboard-row--3col .mini-calendar {
+    gap: 0.3rem;
+}
+
+.dashboard-row--3col .mini-calendar .calendar-day {
+    min-height: 52px;
+    font-size: 0.85rem;
+}
+
+.dashboard-row--3col .mini-calendar .calendar-day .amt {
+    font-size: 0.72rem;
 }
 
 .table,
@@ -799,11 +1011,8 @@ tbody tr {
 }
 
 /* Mini calendar styles */
-.calendar-row {
-    display: block;
-}
 .calendar-container {
-    padding: 1rem;
+    padding: clamp(1.1rem, 2vw, 1.5rem);
 }
 .mini-calendar {
     display: grid;
@@ -899,19 +1108,15 @@ tbody tr:hover {
 }
 
 tbody tr.row-won {
-    box-shadow: inset 3px 0 0 var(--success);
+    background: rgba(124, 247, 196, 0.04);
 }
 
 tbody tr.row-lost {
-    box-shadow: inset 3px 0 0 var(--danger);
-}
-
-tbody tr.row-pending {
-    box-shadow: inset 3px 0 0 var(--warning);
+    background: rgba(255, 122, 138, 0.04);
 }
 
 tbody tr.row-void {
-    box-shadow: inset 3px 0 0 var(--text-tertiary);
+    opacity: 0.65;
 }
 
 .table-responsive,
@@ -1399,7 +1604,7 @@ tbody tr.row-void {
     }
 
     .charts-row,
-    .dashboard-row {
+    .dashboard-row:not(.dashboard-row--3col) {
         grid-template-columns: 1fr;
     }
 }
@@ -1466,6 +1671,10 @@ tbody tr.row-void {
         grid-template-columns: 1fr;
     }
 
+    .kpi-card--primary {
+        grid-column: 1 / -1;
+    }
+
     .auth-form-register .form-row {
         grid-template-columns: 1fr;
     }
@@ -1525,4 +1734,60 @@ tbody tr.row-void {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+}
+
+/* ── Hardening: text overflow guards ────────────────────────────────── */
+
+/* Event column in any bets table: truncate before overflowing */
+.bets-table td:first-child {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Pending card event name: truncate in narrow column */
+.bet-event {
+    min-width: 0;
+}
+
+.bet-event strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+}
+
+/* ── Hardening: empty state for recent bets ─────────────────────────── */
+.recent-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.recent-empty-state p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-tertiary);
+}
+
+/* ── Hardening: today marker in mini-calendar ───────────────────────── */
+.calendar-day.day-today {
+    box-shadow: inset 0 0 0 1.5px rgba(124, 247, 196, 0.45);
+}
+
+.calendar-day.day-today .date {
+    color: var(--primary);
+    font-weight: 800;
+}
+
+/* Calendar day keyboard focus */
+.calendar-day:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
 }

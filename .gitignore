@@ -1,5 +1,9 @@
 # BetLedger .gitignore
 
+# Tool-generated directories
+.claude/
+.impeccable/
+
 # Environment variables
 .env
 .env.local

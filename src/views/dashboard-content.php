@@ -1,28 +1,42 @@
 <div class="dashboard-container">
-    <h1>Dashboard</h1>
-    
-    <!-- KPI Cards -->
+
+    <!-- Dashboard header: greeting + primary CTA -->
+    <div class="dashboard-header">
+        <h1><?php
+            $hour = (int)date('H');
+            if ($hour < 12) $greeting = 'Good morning';
+            elseif ($hour < 18) $greeting = 'Good afternoon';
+            else $greeting = 'Good evening';
+            $username = sanitize($userData['username'] ?? '');
+            echo $username ? $greeting . ', ' . $username : $greeting;
+        ?></h1>
+        <a href="/bets/add" class="btn btn-primary">Add bet</a>
+    </div>
+
+    <!-- KPI Cards: P&L and ROI carry primary visual weight -->
     <div class="kpi-grid">
-        <div class="kpi-card">
-            <div class="kpi-label">Total Bets</div>
-            <div class="kpi-value"><?php echo $totalBets; ?></div>
+        <div class="kpi-card kpi-card--primary">
+            <div class="kpi-label">Total Profit / Loss</div>
+            <div class="kpi-value <?php echo $totalProfit >= 0 ? 'positive' : 'negative'; ?>">
+                <?php echo formatCurrency($totalProfit, $userData['currency']); ?>
+            </div>
+        </div>
+        <div class="kpi-card kpi-card--primary">
+            <div class="kpi-label">ROI</div>
+            <div class="kpi-value"><?php echo $roi; ?>%</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-label">Win Rate</div>
             <div class="kpi-value"><?php echo $winRate; ?>%</div>
         </div>
         <div class="kpi-card">
-            <div class="kpi-label">Total Profit/Loss</div>
-            <div class="kpi-value <?php echo $totalProfit >= 0 ? 'positive' : 'negative'; ?>">
-                <?php echo formatCurrency($totalProfit, $userData['currency']); ?>
+            <div class="kpi-label">Total Bets</div>
+            <div class="kpi-value"><?php echo $totalBets; ?></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label kpi-label--with-info">
+                <abbr title="Yield is your profit as a percentage of total amount wagered (Profit ÷ Total Staked × 100). Higher means better returns relative to what you risked.">Yield</abbr>
             </div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">ROI</div>
-            <div class="kpi-value"><?php echo $roi; ?>%</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Yield</div>
             <div class="kpi-value"><?php echo $yield; ?>%</div>
         </div>
         <div class="kpi-card">
@@ -30,125 +44,151 @@
             <div class="kpi-value"><?php echo number_format($avgOdds, 2); ?></div>
         </div>
     </div>
-    
+
     <!-- Charts Row -->
     <div class="charts-row">
         <div class="chart-container">
             <h3>Bankroll Over Time</h3>
             <div class="chart-viewport">
-                <canvas id="bankrollChart"></canvas>
+                <canvas id="bankrollChart" role="img" aria-label="Line chart: bankroll balance over time"></canvas>
             </div>
         </div>
         <div class="chart-container">
-            <h3>P&L by Sport</h3>
+            <h3>P&amp;L by Sport</h3>
             <div class="chart-viewport">
-                <canvas id="sportChart"></canvas>
+                <canvas id="sportChart" role="img" aria-label="Bar chart: profit and loss grouped by sport"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- Calendar Row -->
-    <div class="calendar-row">
-        <div class="calendar-container">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-                    <h3 style="margin:0">Calendar</h3>
-                    <div class="calendar-nav">
-                        <button id="calPrev" class="btn btn-small btn-outline-light">‹</button>
-                        <span id="calMonthLabel" style="margin:0 0.6rem;font-weight:700;color:var(--text-primary)"></span>
-                        <button id="calNext" class="btn btn-small btn-outline-light">›</button>
-                    </div>
-                </div>
-                <div class="weekday-headers" aria-hidden="true"></div>
-                <div id="miniCalendar" class="mini-calendar" role="grid" aria-label="Monthly calendar"></div>
-            </div>
-    </div>
-    
-    <!-- Recent Bets and Pending Bets -->
-    <div class="dashboard-row">
+    <!-- Detail zone: Recent Bets | Calendar | Pending Bets
+         DOM order: recent, calendar, pending.
+         On tablet: calendar drops below the two bet panels via CSS order.
+         On mobile: all stack. -->
+    <div class="dashboard-row dashboard-row--3col">
+
+        <!-- Column 1: Recent Bets (widest) -->
         <div class="dashboard-section">
             <h3>Recent Bets</h3>
-            <div class="bets-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Event</th>
-                            <th>Type</th>
-                            <th>Odds</th>
-                            <th>Stake</th>
-                            <th>Status</th>
-                            <th>Return</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($recentBets as $bet): ?>
-                        <tr class="row-<?php echo $bet['status']; ?>">
-                            <td><a href="/bets/<?php echo $bet['id']; ?>"><?php echo sanitize($bet['event_name']); ?></a></td>
-                            <td><?php echo ucfirst(str_replace('_', ' ', $bet['bet_type'])); ?></td>
-                            <td><?php echo number_format($bet['odds'], 2); ?></td>
-                            <td><?php echo formatCurrency($bet['stake'], $userData['currency']); ?></td>
-                            <td><?php echo getStatusBadge($bet['status']); ?></td>
-                            <td><?php echo $bet['actual_return'] ? formatCurrency($bet['actual_return'], $userData['currency']) : '-'; ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <a href="/bets" class="btn btn-secondary">View All Bets</a>
+            <?php if (empty($recentBets)): ?>
+                <div class="recent-empty-state">
+                    <p>No bets recorded yet.</p>
+                    <a href="/bets/add" class="btn btn-primary">Record your first bet</a>
+                </div>
+            <?php else: ?>
+                <div class="bets-table">
+                    <table aria-label="Recent betting activity">
+                        <caption class="sr-only">Your 10 most recent bets</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Event</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Odds</th>
+                                <th scope="col">Stake</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Return</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($recentBets as $bet): ?>
+                            <tr class="row-<?php echo $bet['status']; ?>">
+                                <td><a href="/bets/<?php echo $bet['id']; ?>"><?php echo sanitize($bet['event_name']); ?></a></td>
+                                <td><?php echo ucfirst(str_replace('_', ' ', $bet['bet_type'])); ?></td>
+                                <td><?php echo number_format($bet['odds'], 2); ?></td>
+                                <td><?php echo formatCurrency($bet['stake'], $userData['currency']); ?></td>
+                                <td><?php echo getStatusBadge($bet['status']); ?></td>
+                                <td><?php echo $bet['actual_return'] ? formatCurrency($bet['actual_return'], $userData['currency']) : '-'; ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <a href="/bets" class="btn btn-secondary">View all bets</a>
+            <?php endif; ?>
         </div>
-        
-        <div class="dashboard-section">
-            <h3>Pending Bets (<?php echo count($pendingBets); ?>)</h3>
+
+        <!-- Column 2: Calendar (collapsed by default; expand to review history) -->
+        <div class="calendar-container is-collapsed" id="calendarContainer">
+            <div class="calendar-header">
+                <h3>Calendar</h3>
+                <div class="calendar-header-right">
+                    <div class="calendar-nav">
+                        <button id="calPrev" class="btn btn-small btn-outline-light" aria-label="Previous month">&#8249;</button>
+                        <span id="calMonthLabel" class="calendar-month-label"></span>
+                        <button id="calNext" class="btn btn-small btn-outline-light" aria-label="Next month">&#8250;</button>
+                    </div>
+                    <button class="btn btn-small btn-outline-light" id="calToggle" aria-expanded="false" aria-controls="miniCalendar">Show</button>
+                </div>
+            </div>
+            <div class="weekday-headers" aria-hidden="true"></div>
+            <div id="miniCalendar" class="mini-calendar" role="grid" aria-label="Monthly calendar"></div>
+        </div>
+
+        <!-- Column 3: Pending Bets (narrowest) -->
+        <div class="dashboard-section dashboard-section--pending">
+            <h3>Pending <span class="pending-count">(<?php echo count($pendingBets); ?>)</span></h3>
             <div class="pending-bets">
                 <?php if (count($pendingBets) > 0): ?>
-                <?php foreach (array_slice($pendingBets, 0, 5) as $bet): ?>
-                <div class="pending-bet-card">
-                    <div class="bet-event">
-                        <strong><?php echo sanitize($bet['event_name']); ?></strong>
-                        <span class="date"><?php echo formatDate($bet['event_date']); ?></span>
+                    <?php foreach (array_slice($pendingBets, 0, 5) as $bet): ?>
+                    <div class="pending-bet-card">
+                        <div class="bet-event">
+                            <strong><?php echo sanitize($bet['event_name']); ?></strong>
+                            <span class="date"><?php echo formatDate($bet['event_date']); ?></span>
+                        </div>
+                        <div class="pending-bet-meta">
+                            <span class="pending-meta-item">
+                                <span class="stat-label">Odds</span>
+                                <?php echo number_format($bet['odds'], 2); ?>
+                            </span>
+                            <span class="pending-meta-item">
+                                <span class="stat-label">Stake</span>
+                                <?php echo formatCurrency($bet['stake'], $userData['currency']); ?>
+                            </span>
+                            <span class="pending-meta-item">
+                                <span class="stat-label">Return</span>
+                                <?php echo formatCurrency($bet['potential_return'], $userData['currency']); ?>
+                            </span>
+                        </div>
                     </div>
-                    <div class="bet-odds">
-                        <span class="label">Odds:</span>
-                        <span><?php echo number_format($bet['odds'], 2); ?></span>
-                    </div>
-                    <div class="bet-stake">
-                        <span class="label">Stake:</span>
-                        <span><?php echo formatCurrency($bet['stake'], $userData['currency']); ?></span>
-                    </div>
-                    <div class="bet-return">
-                        <span class="label">Potential Return:</span>
-                        <span><?php echo formatCurrency($bet['potential_return'], $userData['currency']); ?></span>
-                    </div>
-                </div>
-                <?php endforeach; ?>
+                    <?php endforeach; ?>
+                    <?php if (count($pendingBets) > 5): ?>
+                    <a href="/bets?status=pending" class="btn btn-small btn-outline-light">View all <?php echo count($pendingBets); ?> pending</a>
+                    <?php endif; ?>
                 <?php else: ?>
-                <p class="empty-state">No pending bets</p>
+                    <div class="pending-empty-state">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span>All settled, nothing pending.</span>
+                        <a href="/bets/add" class="btn btn-small btn-outline-light">Add a bet</a>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
+
     </div>
-    
-    <!-- Quick Actions -->
-    <div class="quick-actions">
-        <a href="/bets/add" class="btn btn-primary btn-large">+ Add Bet</a>
-    </div>
+
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const bankrollHistory = <?php echo json_encode($bankrollHistory); ?>;
-    const bankrollLabels = bankrollHistory.map(function(point) {
-        return point.snapshot_date;
-    });
-    const bankrollValues = bankrollHistory.map(function(point) {
-        return Number(point.balance);
-    });
+    // Read chart colors from CSS variables so they stay in sync with the theme
+    var styles = getComputedStyle(document.documentElement);
+    var colorSuccess = styles.getPropertyValue('--success').trim() || '#7cf7c4';
+    var colorDanger  = styles.getPropertyValue('--danger').trim()  || '#ff7a8a';
+
+    var bankrollHistory = <?php echo json_encode($bankrollHistory); ?>;
+    var bankrollLabels  = bankrollHistory.map(function(p) { return p.snapshot_date; });
+    var bankrollValues  = bankrollHistory.map(function(p) { return Number(p.balance); });
 
     // Bankroll chart
-    const bankrollCtx = document.getElementById('bankrollChart');
+    var bankrollCtx = document.getElementById('bankrollChart');
     if (bankrollCtx) {
-        const bankrollGradient = bankrollCtx.getContext('2d').createLinearGradient(0, 0, 0, 260);
-        bankrollGradient.addColorStop(0, 'rgba(0, 208, 132, 0.35)');
-        bankrollGradient.addColorStop(1, 'rgba(0, 208, 132, 0.02)');
+        var ctx2d = bankrollCtx.getContext('2d');
+        var bankrollGradient = ctx2d.createLinearGradient(0, 0, 0, 260);
+        bankrollGradient.addColorStop(0, 'rgba(124, 247, 196, 0.28)');
+        bankrollGradient.addColorStop(1, 'rgba(124, 247, 196, 0.02)');
 
         new Chart(bankrollCtx, {
             type: 'line',
@@ -157,7 +197,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 datasets: [{
                     label: 'Bankroll',
                     data: bankrollValues,
-                    borderColor: '#00d084',
+                    borderColor: colorSuccess,
                     backgroundColor: bankrollGradient,
                     fill: true,
                     tension: 0.35,
@@ -168,96 +208,72 @@ document.addEventListener('DOMContentLoaded', function() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    x: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
-                    },
-                    y: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
-                    }
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.08)' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.08)' } }
                 }
             }
         });
     }
-    
-    // Sport chart
-    const sportCtx = document.getElementById('sportChart');
+
+    // Sport P&L chart
+    var sportCtx = document.getElementById('sportChart');
     if (sportCtx) {
-        const profitBySport = <?php echo json_encode($profitBySport); ?>;
+        var profitBySport = <?php echo json_encode($profitBySport); ?>;
         new Chart(sportCtx, {
             type: 'bar',
             data: {
-                labels: profitBySport.map(function(row) {
-                    return row.sport_name || row.bookmaker_name || 'Unknown';
-                }),
+                labels: profitBySport.map(function(r) { return r.sport_name || r.bookmaker_name || 'Unknown'; }),
                 datasets: [{
-                    data: profitBySport.map(function(row) {
-                        return Number(row.profit_loss || row.profit || 0);
-                    }),
-                    backgroundColor: profitBySport.map(function(row) {
-                        return Number(row.profit_loss || row.profit || 0) >= 0 ? '#00d084' : '#ff4757';
-                    }),
+                    data: profitBySport.map(function(r) { return Number(r.profit_loss || r.profit || 0); }),
+                    backgroundColor: profitBySport.map(function(r) {
+                        return Number(r.profit_loss || r.profit || 0) >= 0 ? colorSuccess : colorDanger;
+                    })
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    x: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
-                    },
-                    y: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
-                    }
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.08)' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.08)' } }
                 }
             }
         });
     }
 });
 
-// Calendar rendering
+// Calendar
 document.addEventListener('DOMContentLoaded', function() {
-    const dailySummary = <?php echo json_encode($dailySummary ?? []); ?>;
-    const betsByDate = <?php echo json_encode($betsByDate ?? []); ?>;
-    const calendarEl = document.getElementById('miniCalendar');
-    const modal = document.createElement('div');
+    var dailySummary = <?php echo json_encode($dailySummary ?? []); ?>;
+    var betsByDate   = <?php echo json_encode($betsByDate ?? []); ?>;
+    var calendarEl   = document.getElementById('miniCalendar');
+    var currency     = <?php echo json_encode($userData['currency']); ?>;
+
+    // Calendar modal
+    var modal = document.createElement('div');
     modal.id = 'calendarModal';
     modal.className = 'modal';
     modal.style.display = 'none';
-    modal.innerHTML = `
-        <div class="modal-content small">
-            <div class="modal-header"><h4 id="modalTitle"></h4><button class="modal-close" onclick="closeCalendarModal()">&times;</button></div>
-            <div class="modal-body" id="modalBody"></div>
-        </div>`;
+    modal.innerHTML = '<div class="modal-content small"><div class="modal-header"><h4 id="modalTitle"></h4><button class="modal-close" onclick="closeCalendarModal()">&times;</button></div><div class="modal-body" id="modalBody"></div></div>';
     document.body.appendChild(modal);
 
-    // Tooltip for calendar day hover
-    const calendarTooltip = document.createElement('div');
+    // Hover tooltip
+    var calendarTooltip = document.createElement('div');
     calendarTooltip.id = 'calendarTooltip';
-    calendarTooltip.style.position = 'absolute';
-    calendarTooltip.style.display = 'none';
-    calendarTooltip.style.pointerEvents = 'none';
+    calendarTooltip.style.cssText = 'position:absolute;display:none;pointer-events:none;';
     calendarTooltip.className = 'calendar-tooltip';
     document.body.appendChild(calendarTooltip);
 
     function showCalendarTooltip(e, key) {
-        const data = dailySummary[key];
-        const bets = betsByDate[key] || [];
-        let html = '';
-        html += `<div class="tt-row"><strong>${bets.length} bet${bets.length !== 1 ? 's' : ''}</strong></div>`;
+        var data = dailySummary[key];
+        var bets = betsByDate[key] || [];
+        var html = '<div class="tt-row"><strong>' + bets.length + ' bet' + (bets.length !== 1 ? 's' : '') + '</strong></div>';
         if (data && typeof data.profit_loss !== 'undefined') {
-            const pl = Number(data.profit_loss || 0);
-            html += `<div class="tt-row">P/L: <span class="${pl>=0? 'positive' : 'negative'}">${formatCurrency(pl, '<?php echo $userData['currency']; ?>')}</span></div>`;
+            var pl = Number(data.profit_loss || 0);
+            html += '<div class="tt-row">P/L: <span class="' + (pl >= 0 ? 'positive' : 'negative') + '">' + formatCurrency(pl, currency) + '</span></div>';
         }
         calendarTooltip.innerHTML = html;
         calendarTooltip.style.display = 'block';
@@ -265,32 +281,29 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function moveCalendarTooltip(e) {
-        const tt = calendarTooltip;
-        if (!tt || tt.style.display === 'none') return;
-        const pad = 12;
-        let x = e.pageX + pad;
-        let y = e.pageY + pad;
-        const rect = tt.getBoundingClientRect();
-        if (x + rect.width > window.pageXOffset + document.documentElement.clientWidth) x = e.pageX - rect.width - pad;
+        if (!calendarTooltip || calendarTooltip.style.display === 'none') return;
+        var pad = 12;
+        var x = e.pageX + pad;
+        var y = e.pageY + pad;
+        var rect = calendarTooltip.getBoundingClientRect();
+        if (x + rect.width  > window.pageXOffset + document.documentElement.clientWidth)  x = e.pageX - rect.width  - pad;
         if (y + rect.height > window.pageYOffset + document.documentElement.clientHeight) y = e.pageY - rect.height - pad;
-        tt.style.left = x + 'px';
-        tt.style.top = y + 'px';
+        calendarTooltip.style.left = x + 'px';
+        calendarTooltip.style.top  = y + 'px';
     }
 
-    function hideCalendarTooltip() {
-        calendarTooltip.style.display = 'none';
-    }
+    function hideCalendarTooltip() { calendarTooltip.style.display = 'none'; }
 
-    // Calendar state: currently displayed month
-    let displayed = new Date();
+    // Calendar state
+    var displayed = new Date();
 
     function renderWeekdayHeaders() {
-        const headersEl = document.querySelector('.weekday-headers');
+        var headersEl = document.querySelector('.weekday-headers');
         if (!headersEl) return;
-        const weekdayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        var weekdays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
         headersEl.innerHTML = '';
-        weekdayNames.forEach(n => {
-            const el = document.createElement('div');
+        weekdays.forEach(function(n) {
+            var el = document.createElement('div');
             el.className = 'weekday-header';
             el.textContent = n;
             headersEl.appendChild(el);
@@ -298,81 +311,153 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function startOfCalendarGrid(year, month) {
-        const first = new Date(year, month, 1);
-        const weekday = (first.getDay() + 6) % 7; // Monday=0
-        const start = new Date(first);
+        var first   = new Date(year, month, 1);
+        var weekday = (first.getDay() + 6) % 7;
+        var start   = new Date(first);
         start.setDate(first.getDate() - weekday);
         return start;
     }
 
+    var todayKey = new Date().toISOString().slice(0, 10);
+
     function renderCalendar() {
         if (!calendarEl) return;
         calendarEl.innerHTML = '';
-        const year = displayed.getFullYear();
-        const month = displayed.getMonth();
-        const firstOfMonth = new Date(year, month, 1);
-        const lastOfMonth = new Date(year, month + 1, 0);
-        const monthLabel = firstOfMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+        var year         = displayed.getFullYear();
+        var month        = displayed.getMonth();
+        var firstOfMonth = new Date(year, month, 1);
+        var lastOfMonth  = new Date(year, month + 1, 0);
+        var monthLabel   = firstOfMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' });
         document.getElementById('calMonthLabel').textContent = monthLabel;
 
-        const start = startOfCalendarGrid(year, month);
-        const totalDays = Math.ceil(( (lastOfMonth - start) / 86400000 + 1) / 7) * 7;
+        var start     = startOfCalendarGrid(year, month);
+        var totalDays = Math.ceil(((lastOfMonth - start) / 86400000 + 1) / 7) * 7;
 
-        for (let i = 0; i < totalDays; i++) {
-            const d = new Date(start);
+        for (var i = 0; i < totalDays; i++) {
+            var d   = new Date(start);
             d.setDate(start.getDate() + i);
-            const key = d.toISOString().slice(0,10);
-            const dayDiv = document.createElement('div');
+            var key = d.toISOString().slice(0, 10);
+
+            var dayDiv = document.createElement('div');
             dayDiv.className = 'calendar-day';
-            if (d.getMonth() !== month) dayDiv.classList.add('muted');
-            const amount = dailySummary[key] ? Number(dailySummary[key].total_staked || 0) : 0;
-            const profit = dailySummary[key] ? Number(dailySummary[key].profit_loss || 0) : null;
-            if (dailySummary[key]) {
-                dayDiv.classList.add('has-bets');
-                if (profit > 0) dayDiv.classList.add('day-win');
-                else if (profit < 0) dayDiv.classList.add('day-loss');
-                else dayDiv.classList.add('day-neutral');
+            dayDiv.setAttribute('role', 'gridcell');
+
+            var isCurrentMonth = d.getMonth() === month;
+            if (!isCurrentMonth) {
+                dayDiv.classList.add('muted');
+                dayDiv.setAttribute('tabindex', '-1');
+            } else {
+                dayDiv.setAttribute('tabindex', '0');
             }
-            dayDiv.innerHTML = `<div class="date">${d.getDate()}</div><div class="amt">${amount > 0 ? formatCurrency(amount, '<?php echo $userData['currency']; ?>') : ''}</div>`;
+
+            // Today marker
+            if (key === todayKey) {
+                dayDiv.classList.add('day-today');
+                dayDiv.setAttribute('aria-current', 'date');
+            }
+
+            var amount = dailySummary[key] ? Number(dailySummary[key].total_staked || 0) : 0;
+            var profit = dailySummary[key] ? Number(dailySummary[key].profit_loss  || 0) : null;
+
+            if (dailySummary[key]) {
+                var betCount = (betsByDate[key] || []).length;
+                dayDiv.classList.add('has-bets');
+                dayDiv.setAttribute('aria-label', d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + betCount + ' bet' + (betCount !== 1 ? 's' : '') + (profit !== null ? ', P/L ' + (profit >= 0 ? '+' : '') + profit.toFixed(2) : ''));
+                if (profit > 0)      dayDiv.classList.add('day-win');
+                else if (profit < 0) dayDiv.classList.add('day-loss');
+                else                 dayDiv.classList.add('day-neutral');
+            } else {
+                dayDiv.setAttribute('aria-label', d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+            }
+
+            dayDiv.innerHTML = '<div class="date">' + d.getDate() + '</div><div class="amt">' + (amount > 0 ? formatCurrency(amount, currency) : '') + '</div>';
             dayDiv.dataset.date = key;
-            dayDiv.addEventListener('click', function() {
-                showBetsForDate(this.dataset.date);
+
+            dayDiv.addEventListener('click',      function() { showBetsForDate(this.dataset.date); });
+            dayDiv.addEventListener('keydown',    function(e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showBetsForDate(this.dataset.date); }
             });
-            // Tooltip handlers
-            dayDiv.addEventListener('mouseenter', function(e){ showCalendarTooltip(e, key); });
-            dayDiv.addEventListener('mousemove', function(e){ moveCalendarTooltip(e); });
-            dayDiv.addEventListener('mouseleave', function(){ hideCalendarTooltip(); });
+            dayDiv.addEventListener('mouseenter', function(e) { showCalendarTooltip(e, this.dataset.date); });
+            dayDiv.addEventListener('mousemove',  function(e) { moveCalendarTooltip(e); });
+            dayDiv.addEventListener('mouseleave', hideCalendarTooltip);
 
             calendarEl.appendChild(dayDiv);
         }
     }
 
     // Month navigation
-    document.getElementById('calPrev').addEventListener('click', function(){ displayed.setMonth(displayed.getMonth()-1); renderCalendar(); });
-    document.getElementById('calNext').addEventListener('click', function(){ displayed.setMonth(displayed.getMonth()+1); renderCalendar(); });
+    document.getElementById('calPrev').addEventListener('click', function() { displayed.setMonth(displayed.getMonth() - 1); renderCalendar(); });
+    document.getElementById('calNext').addEventListener('click', function() { displayed.setMonth(displayed.getMonth() + 1); renderCalendar(); });
+
+    // Calendar toggle: when expanding, focus the grid so keyboard users land on it
+    var calContainer = document.getElementById('calendarContainer');
+    var calToggle    = document.getElementById('calToggle');
+    calToggle.addEventListener('click', function() {
+        var isCollapsed = calContainer.classList.toggle('is-collapsed');
+        calToggle.textContent = isCollapsed ? 'Show' : 'Hide';
+        calToggle.setAttribute('aria-expanded', (!isCollapsed).toString());
+        if (!isCollapsed) {
+            var firstActive = calendarEl.querySelector('[tabindex="0"]');
+            if (firstActive) firstActive.focus();
+        }
+    });
 
     renderWeekdayHeaders();
 
+    // Modal: focus close button on open; close on Escape
     window.closeCalendarModal = function() {
-        document.getElementById('calendarModal').style.display = 'none';
-    }
+        var modal = document.getElementById('calendarModal');
+        modal.style.display = 'none';
+        // Return focus to the day that opened the modal
+        if (window._calendarModalTrigger) {
+            window._calendarModalTrigger.focus();
+            window._calendarModalTrigger = null;
+        }
+    };
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var modal = document.getElementById('calendarModal');
+            if (modal && modal.style.display !== 'none') closeCalendarModal();
+        }
+    });
 
     function showBetsForDate(date) {
-        const list = betsByDate[date] || [];
-        const title = `Bets on ${date}`;
-        const body = document.getElementById('modalBody');
-        document.getElementById('modalTitle').textContent = title;
+        // Store the triggering element so focus can return on close
+        window._calendarModalTrigger = document.activeElement;
+
+        var list  = betsByDate[date] || [];
+        var body  = document.getElementById('modalBody');
+        var d     = new Date(date + 'T00:00:00');
+        var label = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+        document.getElementById('modalTitle').textContent = label;
+
         if (list.length === 0) {
-            body.innerHTML = '<p>No bets for this day.</p>';
+            body.innerHTML = '<p>No bets recorded for this day.</p>';
         } else {
-            let html = '<table class="table small"><thead><tr><th>Event</th><th>Odds</th><th>Stake</th><th>Status</th><th>Return</th></tr></thead><tbody>';
-            list.forEach(b => {
-                html += `<tr><td><a href="/bets/${b.id}">${sanitizeClient(b.event_name)}</a></td><td>${Number(b.odds).toFixed(2)}</td><td>${formatCurrency(Number(b.stake), '<?php echo $userData['currency']; ?>')}</td><td>${b.status}</td><td>${b.actual_return ? formatCurrency(Number(b.actual_return), '<?php echo $userData['currency']; ?>') : '-'}</td></tr>`;
+            var html = '<table class="table small" aria-label="Bets on ' + sanitizeClient(label) + '">'
+                + '<thead><tr>'
+                + '<th scope="col">Event</th><th scope="col">Odds</th>'
+                + '<th scope="col">Stake</th><th scope="col">Status</th><th scope="col">Return</th>'
+                + '</tr></thead><tbody>';
+            list.forEach(function(b) {
+                html += '<tr>'
+                    + '<td><a href="/bets/' + b.id + '">' + sanitizeClient(b.event_name) + '</a></td>'
+                    + '<td>' + Number(b.odds).toFixed(2) + '</td>'
+                    + '<td>' + formatCurrency(Number(b.stake), currency) + '</td>'
+                    + '<td>' + sanitizeClient(b.status) + '</td>'
+                    + '<td>' + (b.actual_return ? formatCurrency(Number(b.actual_return), currency) : '-') + '</td>'
+                    + '</tr>';
             });
             html += '</tbody></table>';
             body.innerHTML = html;
         }
-        document.getElementById('calendarModal').style.display = 'flex';
+
+        var modal = document.getElementById('calendarModal');
+        modal.style.display = 'flex';
+        // Move focus to close button so keyboard users are inside the modal
+        var closeBtn = modal.querySelector('.modal-close');
+        if (closeBtn) closeBtn.focus();
     }
 
     function sanitizeClient(str) {
