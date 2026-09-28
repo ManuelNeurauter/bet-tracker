@@ -123,6 +123,17 @@ A comprehensive, production-ready full-stack web application for tracking and an
 5. **Access Application**
    - http://localhost:8000
 
+### Updating an Existing Installation
+
+After pulling new code, bring your database up to date. Back up the database first, then run:
+
+```bash
+php database/migrate.php                        # plain install
+docker compose exec web php database/migrate.php  # Docker
+```
+
+`php database/migrate.php status` shows which schema changes are applied. See [database/MIGRATIONS.md](database/MIGRATIONS.md) for details and for how to add a schema change.
+
 ### Option 4: Using Nginx
 
 1. **Install PHP-FPM**
@@ -174,7 +185,7 @@ bankroll_snapshots     - Daily bankroll history
 bankroll_adjustments   - Deposits, withdrawals, bonuses
 ```
 
-See `database/schema.sql` for full schema definition.
+See `database/schema.sql` for full schema definition. Changes to an existing database go through migrations in `database/migrations/` (see [database/MIGRATIONS.md](database/MIGRATIONS.md)).
 
 ## File Structure
 
@@ -223,7 +234,11 @@ bet-tracker/
 │   ├── Database.php           # Database connection class
 │   └── helpers.php            # Utility functions
 ├── database/
-│   └── schema.sql             # Database schema and seed data
+│   ├── schema.sql             # Full schema for fresh installs
+│   ├── seed_data.sql          # Sample data
+│   ├── migrate.php            # Migration runner for existing databases
+│   ├── MIGRATIONS.md          # How to run and write migrations
+│   └── migrations/            # Numbered schema changes
 ├── .htaccess                  # Apache URL rewriting
 └── README.md
 ```
@@ -360,11 +375,11 @@ Colours live as CSS custom properties at the top of `public/css/app.css`. Each t
 
 ### Adding Custom Fields
 
-1. Add column to appropriate database table in `database/schema.sql`
-2. Run migration:
+1. Create a migration with `php database/migrate.php make add_new_field` and put the change in it:
    ```sql
    ALTER TABLE bets ADD COLUMN new_field VARCHAR(255);
    ```
+2. Make the same change in `database/schema.sql`, list the migration version in its `schema_migrations` INSERT, and run `php database/migrate.php`
 3. Update model class to handle new field
 4. Update controller to process new field
 5. Update view templates

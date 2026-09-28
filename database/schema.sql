@@ -208,6 +208,19 @@ CREATE TABLE bankroll_adjustments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
+-- SCHEMA_MIGRATIONS TABLE
+-- Versions from database/migrations/ that this file already includes.
+-- When you add a migration, make the same change above and list its version here.
+-- ============================================
+CREATE TABLE schema_migrations (
+    version VARCHAR(255) PRIMARY KEY,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO schema_migrations (version) VALUES
+('0001_add_tax_columns');
+
+-- ============================================
 -- CREATE SAMPLE SPORTS DATA
 -- ============================================
 INSERT INTO sports (name, icon_slug) VALUES
