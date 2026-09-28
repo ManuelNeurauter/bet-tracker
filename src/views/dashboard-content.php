@@ -29,6 +29,17 @@ foreach ($profitBySport as $row) {
     </div>
 </div>
 
+<?php if (!empty($layoutInvites)): ?>
+<a href="/shared#invitations" class="card invite-banner mb-3">
+    <span class="kpi-icon accent"><?php echo icon('handshake'); ?></span>
+    <span class="grow">
+        <strong><?php echo $layoutInvites === 1 ? 'Someone wants to bet with you' : $layoutInvites . ' shared bet invitations'; ?></strong>
+        <span class="text-2">Accept to take your part of the stake and your share of the return.</span>
+    </span>
+    <span class="btn btn-sm btn-primary">Review <?php echo icon('chevron-right', 'icon-sm'); ?></span>
+</a>
+<?php endif; ?>
+
 <?php if ($isNewUser): ?>
 <div class="card hero mb-3">
     <div class="eyebrow"><?php echo icon('sparkles', 'icon-xs'); ?> Getting started</div>
@@ -116,7 +127,11 @@ foreach ($profitBySport as $row) {
                         <div class="when"><span class="mono">@<?php echo formatOdds($bet['odds']); ?></span> · <?php echo formatCurrency($bet['stake']); ?></div>
                     </div>
                     <div class="actions">
+                        <?php if (!empty($bet['shared_from'])): ?>
+                        <span class="pill pill-accent" title="Settled by <?php echo e($bet['shared_from']); ?>"><?php echo icon('users', 'icon-xs'); ?> <?php echo e($bet['shared_from']); ?></span>
+                        <?php else: ?>
                         <?php include __DIR__ . '/partials/settle-buttons.php'; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endforeach; ?>

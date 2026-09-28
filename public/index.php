@@ -19,6 +19,7 @@ require_once '../src/models/Tag.php';
 require_once '../src/models/Tipster.php';
 require_once '../src/models/Sport.php';
 require_once '../src/models/Analytics.php';
+require_once '../src/models/SharedBet.php';
 
 // Load Controllers
 require_once '../src/controllers/AuthController.php';
@@ -29,6 +30,7 @@ require_once '../src/controllers/BookmakerController.php';
 require_once '../src/controllers/TagController.php';
 require_once '../src/controllers/TipsterController.php';
 require_once '../src/controllers/SettingsController.php';
+require_once '../src/controllers/SharedBetController.php';
 
 // Parse URL
 $request_uri = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
@@ -60,6 +62,12 @@ $routes = [
     ['GET', 'bets/(\d+)/edit', 'BetController::showEdit'],
     ['POST', 'bets/(\d+)/edit', 'BetController::handleEdit'],
     ['POST', 'bets/(\d+)/delete', 'BetController::delete'],
+    ['POST', 'bets/(\d+)/share', 'SharedBetController::invite'],
+
+    ['GET', 'shared', 'SharedBetController::index'],
+    ['POST', 'shared/(\d+)/accept', 'SharedBetController::accept'],
+    ['POST', 'shared/(\d+)/decline', 'SharedBetController::decline'],
+    ['POST', 'shared/(\d+)/remove', 'SharedBetController::remove'],
 
     ['GET', 'statistics', 'StatisticsController::index'],
 
@@ -104,7 +112,7 @@ foreach ($routes as [$method, $pattern, $handler]) {
 
 if ($pathMatched) {
     // Known page, wrong method (e.g. opening a delete URL directly)
-    redirect('/' . preg_replace('#/(\d+)/(delete|edit)$#', '', $request_uri));
+    redirect('/' . preg_replace('#/(\d+)/(delete|edit|share|accept|decline|remove)$#', '', $request_uri));
 }
 
 notFound();

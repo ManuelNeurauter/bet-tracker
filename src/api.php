@@ -91,6 +91,8 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
             $bet = $betModel->getById($betId, $userId);
             if (!$bet) {
                 $response = ['success' => false, 'message' => 'Bet not found'];
+            } elseif (!empty($bet['shared_from'])) {
+                $response = ['success' => false, 'message' => 'Only ' . $bet['shared_from'] . ' can settle this shared bet'];
             } else {
                 $cashoutAmount = $status === BET_STATUS_CASHOUT ? $amount : null;
                 $actualReturn = calculateSettlementReturn(
@@ -138,6 +140,9 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                             syncBankrollSnapshot($userId);
                         }
                     }
+
+                    $sharedBetModel = new SharedBet();
+                    $sharedBetModel->syncFromOwner($betId, $userId);
 
                     $labels = betStatuses();
                     setFlash('success', e(plainText($bet['event_name'])) . ' marked as ' . strtolower($labels[$status]) . '.');
