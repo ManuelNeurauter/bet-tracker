@@ -2,6 +2,11 @@
 
 All notable changes to BetLedger will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Database migrations: `php database/migrate.php` brings an existing database up to date with the current schema (see `database/MIGRATIONS.md`). The first migration adds the bookmaker `tax_percentage` and bet `tax_amount` columns to databases created before tax support.
+
 ## [1.0.0] - 2026
 
 ### Initial Release
