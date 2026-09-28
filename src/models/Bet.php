@@ -19,6 +19,10 @@ class Bet {
         'created_desc' => 'b.created_at DESC, b.id DESC',
     ];
 
+    /** Columns that tell whether a bet is a partner's copy of a shared bet, or has partners */
+    const SHARE_COLUMNS = "(SELECT so.username FROM bet_shares sx JOIN users so ON so.id = sx.owner_id WHERE sx.partner_bet_id = b.id LIMIT 1) as shared_from,
+                   (SELECT COUNT(*) FROM bet_shares sx WHERE sx.bet_id = b.id AND sx.status = 'accepted') as shared_partners";
+
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
     }
@@ -126,7 +130,7 @@ class Bet {
      */
     public function getById($betId, $userId) {
         $stmt = $this->db->prepare('
-            SELECT b.*,
+            SELECT b.*, ' . self::SHARE_COLUMNS . ',
                    bm.name as bookmaker_name,
                    s.name as sport_name,
                    c.name as competition_name
@@ -199,7 +203,7 @@ class Bet {
      * Get all bets for user with filters
      */
     public function getByUser($userId, $filters = [], $page = 1, $limit = ITEMS_PER_PAGE, $sort = 'date_desc') {
-        $sql = 'SELECT b.*, s.name as sport_name, bm.name as bookmaker_name
+        $sql = 'SELECT b.*, ' . self::SHARE_COLUMNS . ', s.name as sport_name, bm.name as bookmaker_name
                 FROM bets b
                 LEFT JOIN sports s ON b.sport_id = s.id
                 LEFT JOIN bookmakers bm ON b.bookmaker_id = bm.id
@@ -315,7 +319,7 @@ class Bet {
      */
     public function getRecentBets($userId, $limit = 10) {
         $stmt = $this->db->prepare('
-            SELECT b.*, s.name as sport_name, bm.name as bookmaker_name
+            SELECT b.*, ' . self::SHARE_COLUMNS . ', s.name as sport_name, bm.name as bookmaker_name
             FROM bets b
             LEFT JOIN sports s ON b.sport_id = s.id
             LEFT JOIN bookmakers bm ON b.bookmaker_id = bm.id
@@ -332,7 +336,7 @@ class Bet {
      */
     public function getPendingBets($userId) {
         $stmt = $this->db->prepare('
-            SELECT b.*, s.name as sport_name, bm.name as bookmaker_name
+            SELECT b.*, ' . self::SHARE_COLUMNS . ', s.name as sport_name, bm.name as bookmaker_name
             FROM bets b
             LEFT JOIN sports s ON b.sport_id = s.id
             LEFT JOIN bookmakers bm ON b.bookmaker_id = bm.id

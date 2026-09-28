@@ -200,6 +200,9 @@ $lastRow = min($totalBets, $page * ITEMS_PER_PAGE);
                                     <?php echo e($bet['selection']); ?>
                                     <?php if ($bet['bet_type'] !== 'single'): ?> · <?php echo e(betTypeLabel($bet['bet_type'])); ?><?php endif; ?>
                                 </span>
+                                <?php if (!empty($bet['shared_from']) || !empty($bet['shared_partners'])): ?>
+                                <span class="shared-note"><?php echo icon('users', 'icon-xs'); ?><?php echo !empty($bet['shared_from']) ? 'Shared by ' . e($bet['shared_from']) : 'Shared with ' . (int)$bet['shared_partners'] . ' other' . ((int)$bet['shared_partners'] === 1 ? '' : 's'); ?></span>
+                                <?php endif; ?>
                                 <?php if ($rowTags): ?>
                                 <div class="chips" style="margin-top:6px">
                                     <?php foreach ($rowTags as $tag): ?>
@@ -220,7 +223,8 @@ $lastRow = min($totalBets, $page * ITEMS_PER_PAGE);
                     <td class="m-end" data-label="Status"><?php echo getStatusBadge($bet['status']); ?></td>
                     <td class="m-actions">
                         <div class="row-actions">
-                            <?php if ($bet['status'] === BET_STATUS_PENDING): ?>
+                            <?php $isPartnerCopy = !empty($bet['shared_from']); ?>
+                            <?php if ($bet['status'] === BET_STATUS_PENDING && !$isPartnerCopy): ?>
                             <button type="button" class="btn btn-win btn-icon btn-sm" data-settle="won" data-bet-id="<?php echo (int)$bet['id']; ?>" title="Mark as won" aria-label="Mark as won"><?php echo icon('check', 'icon-sm'); ?></button>
                             <button type="button" class="btn btn-loss btn-icon btn-sm" data-settle="lost" data-bet-id="<?php echo (int)$bet['id']; ?>" title="Mark as lost" aria-label="Mark as lost"><?php echo icon('x', 'icon-sm'); ?></button>
                             <button type="button" class="btn btn-cashout btn-icon btn-sm" data-settle="cashout" data-bet-id="<?php echo (int)$bet['id']; ?>" data-event="<?php echo e(plainText($bet['event_name'])); ?>" data-stake="<?php echo e($bet['stake']); ?>" title="Cash out" aria-label="Cash out"><?php echo icon('hand-coins', 'icon-sm'); ?></button>
@@ -229,6 +233,7 @@ $lastRow = min($totalBets, $page * ITEMS_PER_PAGE);
                                 <summary class="btn btn-ghost btn-icon btn-sm" aria-label="More actions"><?php echo icon('ellipsis', 'icon-sm'); ?></summary>
                                 <div class="dropdown-menu">
                                     <a href="/bets/<?php echo (int)$bet['id']; ?>"><?php echo icon('eye', 'icon-sm'); ?> View</a>
+                                    <?php if (!$isPartnerCopy): ?>
                                     <a href="/bets/<?php echo (int)$bet['id']; ?>/edit"><?php echo icon('pencil', 'icon-sm'); ?> Edit</a>
                                     <hr>
                                     <form method="POST" action="/bets/<?php echo (int)$bet['id']; ?>/delete" data-confirm="“<?php echo e(plainText($bet['event_name'])); ?>” will be removed and its result taken off the bookmaker balance." data-confirm-title="Delete this bet?" data-confirm-button="Delete bet">
@@ -236,6 +241,7 @@ $lastRow = min($totalBets, $page * ITEMS_PER_PAGE);
                                         <input type="hidden" name="redirect" value="<?php echo e($_SERVER['REQUEST_URI']); ?>">
                                         <button type="submit" class="danger"><?php echo icon('trash-2', 'icon-sm'); ?> Delete</button>
                                     </form>
+                                    <?php endif; ?>
                                 </div>
                             </details>
                         </div>
