@@ -13,21 +13,29 @@ class TipsterController {
         
         $userId = getCurrentUserId();
         $tipsterModel = new Tipster();
-        $tipsters = $tipsterModel->getByUser($userId);
+        $tipsters = $tipsterModel->getByUser($userId, false);
         
         foreach ($tipsters as &$tipster) {
             $stats = $tipsterModel->getStatistics($tipster['id'], $userId);
             $tipster['stats'] = $stats;
             
             if ($stats && $stats['total_bets'] > 0) {
-                $tipster['roi'] = calculateROI($stats['profit_loss'], $stats['total_staked']);
-                $tipster['win_rate'] = round(($stats['won_bets'] / $stats['total_bets']) * 100, 2);
+                $tipster['roi'] = $stats['total_staked'] > 0 ? round($stats['profit_loss'] / $stats['total_staked'] * 100, 1) : 0;
+                $tipster['win_rate'] = round(($stats['won_bets'] / $stats['total_bets']) * 100, 1);
             } else {
                 $tipster['roi'] = 0;
                 $tipster['win_rate'] = 0;
             }
         }
         
+        unset($tipster);
+        // Best performers first
+        usort($tipsters, function ($a, $b) {
+            return ((float)($b['stats']['profit_loss'] ?? 0) <=> (float)($a['stats']['profit_loss'] ?? 0)) ?: strcasecmp($a['name'], $b['name']);
+        });
+        $activeTipsters = array_values(array_filter($tipsters, function ($t) { return $t['is_active']; }));
+        $inactiveTipsters = array_values(array_filter($tipsters, function ($t) { return !$t['is_active']; }));
+
         include __DIR__ . '/../views/tipsters/list.php';
     }
     
@@ -56,9 +64,9 @@ class TipsterController {
         }
         
         $userId = getCurrentUserId();
-        $name = sanitize($_POST['name'] ?? '');
-        $sourceUrl = sanitize($_POST['source_url'] ?? '');
-        $notes = sanitize($_POST['notes'] ?? '');
+        $name = postString('name', '');
+        $sourceUrl = postString('source_url', '');
+        $notes = postString('notes', '');
         
         if (empty($name)) {
             setFlash('error', 'Tipster name is required.');
@@ -86,10 +94,10 @@ class TipsterController {
         $tipster = $tipsterModel->getById($tipsterId, $userId);
         
         if (!$tipster) {
-            http_response_code(404);
-            die('Tipster not found');
+            notFound('That tipster does not exist or was deleted.');
         }
         
+        $stats = $tipsterModel->getStatistics($tipsterId, $userId);
         include __DIR__ . '/../views/tipsters/edit.php';
     }
     
@@ -113,14 +121,13 @@ class TipsterController {
         $tipsterModel = new Tipster();
         
         if (!$tipsterModel->getById($tipsterId, $userId)) {
-            http_response_code(404);
-            die('Tipster not found');
+            notFound('That tipster does not exist or was deleted.');
         }
         
         $data = [
-            'name' => sanitize($_POST['name'] ?? ''),
-            'source_url' => sanitize($_POST['source_url'] ?? ''),
-            'notes' => sanitize($_POST['notes'] ?? ''),
+            'name' => postString('name', ''),
+            'source_url' => postString('source_url', ''),
+            'notes' => postString('notes', ''),
             'is_active' => isset($_POST['is_active']) ? 1 : 0,
         ];
         
@@ -158,8 +165,7 @@ class TipsterController {
         $tipsterModel = new Tipster();
         
         if (!$tipsterModel->getById($tipsterId, $userId)) {
-            http_response_code(404);
-            die('Tipster not found');
+            notFound('That tipster does not exist or was deleted.');
         }
         
         if ($tipsterModel->delete($tipsterId, $userId)) {

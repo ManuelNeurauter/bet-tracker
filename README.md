@@ -183,9 +183,13 @@ bet-tracker/
 ├── public/
 │   ├── index.php              # Main router/entry point
 │   ├── css/
-│   │   └── style.css          # Dark theme stylesheet
-│   └── js/
-│       └── main.js            # Frontend functionality
+│   │   └── app.css            # Design system: dark and light themes, components, layouts
+│   ├── js/
+│   │   └── app.js             # Charts, quick settle, live bet slip, dialogs, shortcuts
+│   └── assets/
+│       ├── icons.svg          # Lucide icon sprite
+│       ├── fonts/             # Geist and Geist Mono (self-hosted)
+│       └── vendor/            # Chart.js
 ├── src/
 │   ├── controllers/
 │   │   ├── AuthController.php
@@ -342,16 +346,16 @@ P&L = Actual Return - Stake
 
 ### Theme Colors
 
-Edit the CSS variables in `public/css/style.css`:
+Colours live as CSS custom properties at the top of `public/css/app.css`. Each theme has its own block, so change both:
 
 ```css
-:root {
-    --color-primary-bg: #0f1117;      /* Main background */
-    --color-success: #00d084;          /* Wins (green) */
-    --color-danger: #ff4757;           /* Losses (red) */
-    --color-warning: #ffa502;          /* Pending (orange) */
-    --color-info: #3498db;             /* Info (blue) */
+:root {                                  /* dark theme */
+    --accent: #8b7bff;                   /* buttons, links, highlights */
+    --win: #2fd18b;                      /* wins and profit */
+    --loss: #ff5a6e;                     /* losses */
+    --pending: #f7b23b;                  /* open bets */
 }
+[data-theme="light"] { /* same tokens for the light theme */ }
 ```
 
 ### Adding Custom Fields

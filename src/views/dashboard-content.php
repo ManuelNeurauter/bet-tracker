@@ -1,385 +1,421 @@
-<div class="dashboard-container">
-    <h1>Dashboard</h1>
-    
-    <!-- KPI Cards -->
-    <div class="kpi-grid">
-        <div class="kpi-card">
-            <div class="kpi-label">Total Bets</div>
-            <div class="kpi-value"><?php echo $totalBets; ?></div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Win Rate</div>
-            <div class="kpi-value"><?php echo $winRate; ?>%</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Total Profit/Loss</div>
-            <div class="kpi-value <?php echo $totalProfit >= 0 ? 'positive' : 'negative'; ?>">
-                <?php echo formatCurrency($totalProfit, $userData['currency']); ?>
-            </div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">ROI</div>
-            <div class="kpi-value"><?php echo $roi; ?>%</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Yield</div>
-            <div class="kpi-value"><?php echo $yield; ?>%</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Avg Odds</div>
-            <div class="kpi-value"><?php echo number_format($avgOdds, 2); ?></div>
-        </div>
+<?php
+$hour = (int)date('G');
+$greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
+$changePct = $bankrollStart != 0 ? round($bankrollChange / abs($bankrollStart) * 100, 1) : 0;
+$bankrollWhole = formatCurrency($currentBankroll, null, 2);
+$isNewUser = $totalBets === 0 && empty($recentBets);
+$streak = $analytics['streaks'];
+$maxSportAbs = 0;
+foreach ($profitBySport as $row) {
+    $maxSportAbs = max($maxSportAbs, abs((float)$row['profit_loss']));
+}
+?>
+<div class="page-header">
+    <div>
+        <h1><?php echo e($greeting); ?>, <?php echo e($userData['username']); ?></h1>
+        <p class="subtitle">
+            <?php if ($isNewUser): ?>
+            Let's get your first bets on the board.
+            <?php elseif (count($pendingBets) > 0): ?>
+            You have <?php echo count($pendingBets); ?> open bet<?php echo count($pendingBets) === 1 ? '' : 's'; ?> worth <?php echo formatCurrency($pendingReturn); ?> if they all land.
+            <?php else: ?>
+            All your bets are settled. Here is how you are doing.
+            <?php endif; ?>
+        </p>
     </div>
-    
-    <!-- Charts Row -->
-    <div class="charts-row">
-        <div class="chart-container">
-            <h3>Bankroll Over Time</h3>
-            <div class="chart-viewport">
-                <canvas id="bankrollChart"></canvas>
-            </div>
-        </div>
-        <div class="chart-container">
-            <h3>P&L by Sport</h3>
-            <div class="chart-viewport">
-                <canvas id="sportChart"></canvas>
-            </div>
-        </div>
+    <div class="actions">
+        <a href="/statistics" class="btn"><?php echo icon('chart-column'); ?> Statistics</a>
+        <a href="/bets/add" class="btn btn-primary keep"><?php echo icon('plus'); ?> New bet</a>
     </div>
+</div>
 
-    <!-- Calendar Row -->
-    <div class="calendar-row">
-        <div class="calendar-container">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-                    <h3 style="margin:0">Calendar</h3>
-                    <div class="calendar-nav">
-                        <button id="calPrev" class="btn btn-small btn-outline-light">‹</button>
-                        <span id="calMonthLabel" style="margin:0 0.6rem;font-weight:700;color:var(--text-primary)"></span>
-                        <button id="calNext" class="btn btn-small btn-outline-light">›</button>
+<?php if ($isNewUser): ?>
+<div class="card hero mb-3">
+    <div class="eyebrow"><?php echo icon('sparkles', 'icon-xs'); ?> Getting started</div>
+    <h2 style="font-size:22px;letter-spacing:-.03em">Three steps to your first insights</h2>
+    <div class="grid grid-3 mt-2" style="padding-bottom:18px">
+        <a href="/bookmakers/add" class="card kpi" style="color:inherit">
+            <div class="kpi-top"><span class="kpi-label">Step 1</span><span class="kpi-icon accent"><?php echo icon('landmark'); ?></span></div>
+            <div class="kpi-value" style="font-size:17px">Add a bookmaker</div>
+            <div class="kpi-meta">Enter your balance so your bankroll is tracked.</div>
+        </a>
+        <a href="/bets/add" class="card kpi" style="color:inherit">
+            <div class="kpi-top"><span class="kpi-label">Step 2</span><span class="kpi-icon win"><?php echo icon('receipt-text'); ?></span></div>
+            <div class="kpi-value" style="font-size:17px">Log a bet</div>
+            <div class="kpi-meta">Odds, stake and selection. Settle it when it's done.</div>
+        </a>
+        <a href="/tags" class="card kpi" style="color:inherit">
+            <div class="kpi-top"><span class="kpi-label">Step 3</span><span class="kpi-icon pending"><?php echo icon('tag'); ?></span></div>
+            <div class="kpi-value" style="font-size:17px">Tag your strategies</div>
+            <div class="kpi-meta">See which approaches actually make money.</div>
+        </a>
+    </div>
+</div>
+<?php endif; ?>
+
+<div class="grid grid-main-side mb-2">
+    <section class="card hero">
+        <div class="hero-top">
+            <div>
+                <div class="hero-label"><?php echo icon('wallet', 'icon-sm'); ?> Bankroll</div>
+                <div class="hero-value <?php echo $currentBankroll < 0 ? 'text-loss' : ''; ?>"><?php echo e($bankrollWhole); ?></div>
+                <div class="hero-meta">
+                    <?php if (count($bankrollHistory) > 1): ?>
+                    <span class="delta <?php echo $bankrollChange > 0 ? 'up' : ($bankrollChange < 0 ? 'down' : 'flat'); ?>">
+                        <?php echo icon($bankrollChange >= 0 ? 'arrow-up-right' : 'arrow-down-right'); ?>
+                        <?php echo ($changePct > 0 ? '+' : '') . $changePct; ?>%
+                    </span>
+                    <span><?php echo formatSigned($bankrollChange); ?> since <?php echo formatUserDate($bankrollHistory[0]['snapshot_date']); ?></span>
+                    <?php else: ?>
+                    <span>Your bankroll history builds up as you settle bets.</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <div class="label">All-time profit</div>
+                    <div class="value <?php echo toneClass($totalProfit); ?>"><?php echo formatSigned($totalProfit); ?></div>
+                </div>
+                <div class="hero-stat">
+                    <div class="label">ROI</div>
+                    <div class="value <?php echo toneClass($roi); ?>"><?php echo ($roi > 0 ? '+' : '') . $roi; ?>%</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="label">In play</div>
+                    <div class="value"><?php echo formatCurrency($pendingStake); ?></div>
+                </div>
+            </div>
+        </div>
+        <div class="chart-box hero-chart">
+            <canvas id="bankrollChart" aria-label="Bankroll over time"></canvas>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h2>Open bets</h2>
+                <div class="hint"><?php echo count($pendingBets); ?> pending · <?php echo formatCurrency($pendingStake); ?> staked</div>
+            </div>
+            <a href="/bets?status=pending" class="card-link">View all <?php echo icon('chevron-right', 'icon-xs'); ?></a>
+        </div>
+        <div class="card-body flush">
+            <?php if ($pendingBets): ?>
+            <div class="list">
+                <?php foreach (array_slice($pendingBets, 0, 4) as $bet): ?>
+                <div class="pending-item">
+                    <a href="/bets/<?php echo (int)$bet['id']; ?>" class="cell-main" style="color:inherit">
+                        <?php echo sportBadge($bet['sport_name']); ?>
+                        <span style="min-width:0">
+                            <span class="cell-title"><?php echo e($bet['event_name']); ?></span>
+                            <span class="cell-sub"><?php echo e($bet['selection']); ?></span>
+                        </span>
+                    </a>
+                    <div class="text-right">
+                        <div class="num" style="font-weight:600"><?php echo formatCurrency($bet['potential_return']); ?></div>
+                        <div class="when"><span class="mono">@<?php echo formatOdds($bet['odds']); ?></span> · <?php echo formatCurrency($bet['stake']); ?></div>
+                    </div>
+                    <div class="actions">
+                        <?php include __DIR__ . '/partials/settle-buttons.php'; ?>
                     </div>
                 </div>
-                <div class="weekday-headers" aria-hidden="true"></div>
-                <div id="miniCalendar" class="mini-calendar" role="grid" aria-label="Monthly calendar"></div>
+                <?php endforeach; ?>
             </div>
+            <?php else: ?>
+            <div class="empty sm">
+                <div class="empty-icon"><?php echo icon('ticket'); ?></div>
+                <h3>No open bets</h3>
+                <p>Bets you log as pending show up here so you can settle them in one tap.</p>
+                <a href="/bets/add" class="btn btn-sm"><?php echo icon('plus', 'icon-sm'); ?> Log a bet</a>
+            </div>
+            <?php endif; ?>
+        </div>
+    </section>
+</div>
+
+<div class="grid grid-4 mb-2">
+    <div class="card kpi">
+        <div class="kpi-top"><span class="kpi-label">Win rate</span><span class="kpi-icon win"><?php echo icon('target'); ?></span></div>
+        <div class="kpi-value"><?php echo $winRate; ?>%</div>
+        <div class="kpi-meta"><?php echo $wonBets; ?>W · <?php echo (int)($userStats['lost_bets'] ?? 0); ?>L · <?php echo (int)($userStats['cashed_out_bets'] ?? 0); ?> cashed out</div>
     </div>
-    
-    <!-- Recent Bets and Pending Bets -->
-    <div class="dashboard-row">
-        <div class="dashboard-section">
-            <h3>Recent Bets</h3>
-            <div class="bets-table">
-                <table>
+    <div class="card kpi">
+        <div class="kpi-top"><span class="kpi-label">This month</span><span class="kpi-icon accent"><?php echo icon('calendar'); ?></span></div>
+        <div class="kpi-value <?php echo toneClass($monthProfit); ?>"><?php echo formatSigned($monthProfit); ?></div>
+        <div class="kpi-meta"><?php echo (int)$monthBets; ?> settled in <?php echo date('F'); ?></div>
+    </div>
+    <div class="card kpi">
+        <div class="kpi-top"><span class="kpi-label">Total staked</span><span class="kpi-icon cashout"><?php echo icon('coins'); ?></span></div>
+        <div class="kpi-value"><?php echo formatCurrency($totalStaked); ?></div>
+        <div class="kpi-meta">over <?php echo $totalBets; ?> settled bets</div>
+    </div>
+    <div class="card kpi">
+        <div class="kpi-top"><span class="kpi-label">Average odds</span><span class="kpi-icon pending"><?php echo icon('scale'); ?></span></div>
+        <div class="kpi-value"><?php echo $avgOdds > 0 ? formatOdds($avgOdds) : '—'; ?></div>
+        <div class="kpi-meta"><?php echo $avgOdds > 0 ? round(100 / $avgOdds, 1) . '% implied chance' : 'No settled bets yet'; ?></div>
+    </div>
+</div>
+
+<div class="grid grid-main-side mb-2">
+    <section class="card" data-calendar>
+        <div class="card-header">
+            <div>
+                <h2>Calendar</h2>
+                <div class="hint">Daily profit and loss. Tap a day to see its bets.</div>
+            </div>
+            <div class="calendar-head">
+                <button type="button" class="btn btn-ghost btn-icon btn-sm" data-cal-prev aria-label="Previous month"><?php echo icon('chevron-left', 'icon-sm'); ?></button>
+                <span class="month" data-cal-label></span>
+                <button type="button" class="btn btn-ghost btn-icon btn-sm" data-cal-next aria-label="Next month"><?php echo icon('chevron-right', 'icon-sm'); ?></button>
+                <button type="button" class="btn btn-sm desktop-only" data-cal-today>Today</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="calendar" data-cal-grid></div>
+            <div class="legend mt-2">
+                <span><i style="--c:var(--win)"></i>Profit</span>
+                <span><i style="--c:var(--loss)"></i>Loss</span>
+                <span><i style="--c:var(--pending)"></i>Open bets</span>
+                <span><i style="--c:var(--accent)"></i>Today</span>
+            </div>
+        </div>
+    </section>
+
+    <div class="stack">
+        <section class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Recent form</h2>
+                    <div class="hint">Last <?php echo count($recentForm); ?> settled bets, newest first</div>
+                </div>
+            </div>
+            <div class="card-body">
+                <?php if ($recentForm): ?>
+                <div class="form-dots">
+                    <?php foreach ($recentForm as $f): ?>
+                    <a href="/bets/<?php echo (int)$f['id']; ?>" class="form-dot <?php echo e($f['status']); ?>" title="<?php echo e(plainText($f['event_name'])); ?>"><?php echo $f['status'] === 'won' ? 'W' : ($f['status'] === 'lost' ? 'L' : 'C'); ?></a>
+                    <?php endforeach; ?>
+                </div>
+                <div class="row mt-2 wrap" style="gap:18px">
+                    <div>
+                        <div class="text-muted" style="font-size:12px">Current streak</div>
+                        <div style="font-weight:650;font-size:17px" class="<?php echo $streak['current_type'] === 'win' ? 'text-win' : ($streak['current_type'] === 'loss' ? 'text-loss' : ''); ?>">
+                            <?php echo $streak['current'] ? $streak['current'] . ' ' . ($streak['current_type'] === 'win' ? 'win' : 'loss') . ($streak['current'] === 1 ? '' : ($streak['current_type'] === 'win' ? 's' : 'es')) : '—'; ?>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:12px">Best run</div>
+                        <div style="font-weight:650;font-size:17px"><?php echo (int)$streak['longest_win']; ?> wins</div>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:12px">Worst run</div>
+                        <div style="font-weight:650;font-size:17px"><?php echo (int)$streak['longest_loss']; ?> losses</div>
+                    </div>
+                </div>
+                <?php else: ?>
+                <p class="text-muted">Settle a few bets to see your form.</p>
+                <?php endif; ?>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Profit by sport</h2>
+                    <div class="hint">Settled bets only</div>
+                </div>
+                <a href="/statistics" class="card-link">Details <?php echo icon('chevron-right', 'icon-xs'); ?></a>
+            </div>
+            <div class="card-body">
+                <?php if ($profitBySport): ?>
+                <div class="stack-sm" style="gap:14px">
+                    <?php foreach (array_slice($profitBySport, 0, 5) as $row): $pl = (float)$row['profit_loss']; ?>
+                    <div>
+                        <div class="row-between" style="font-size:13px;margin-bottom:6px">
+                            <span class="row" style="gap:10px"><?php echo sportBadge($row['sport_name'] ?? ''); ?><span style="font-weight:560"><?php echo e($row['sport_name'] ?? 'No sport'); ?></span></span>
+                            <span class="num <?php echo toneClass($pl); ?>" style="font-weight:620"><?php echo formatSigned($pl); ?></span>
+                        </div>
+                        <div class="bar <?php echo $pl >= 0 ? 'win' : 'loss'; ?>"><span style="width:<?php echo $maxSportAbs > 0 ? max(3, round(abs($pl) / $maxSportAbs * 100)) : 0; ?>%"></span></div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php else: ?>
+                <p class="text-muted">No settled bets yet.</p>
+                <?php endif; ?>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="grid grid-side-main">
+    <div class="stack">
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h2>Monthly profit</h2>
+                <div class="hint">Last <?php echo max(1, count($monthlyPl)); ?> months</div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-box sm"><canvas id="monthlyChart" aria-label="Monthly profit"></canvas></div>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h2>Bookmakers</h2>
+                <div class="hint">Where your bankroll sits</div>
+            </div>
+            <a href="/bookmakers" class="card-link">Manage <?php echo icon('chevron-right', 'icon-xs'); ?></a>
+        </div>
+        <div class="card-body flush">
+            <?php if ($bookmakers): ?>
+            <div class="list">
+                <?php foreach (array_slice($bookmakers, 0, 5) as $bm): $bal = (float)$bm['account_balance'] + (float)$bm['bonus_balance']; ?>
+                <a href="/bookmakers/<?php echo (int)$bm['id']; ?>/edit" class="list-item">
+                    <?php echo avatar($bm['name'], 'sm'); ?>
+                    <div class="grow">
+                        <div class="title"><?php echo e($bm['name']); ?></div>
+                        <div class="bar" style="margin-top:6px"><span style="width:<?php echo $currentBankroll > 0 ? max(2, min(100, round($bal / $currentBankroll * 100))) : 0; ?>%"></span></div>
+                    </div>
+                    <div class="end num" style="font-weight:600"><?php echo formatCurrency($bal); ?></div>
+                </a>
+                <?php endforeach; ?>
+            </div>
+            <?php else: ?>
+            <div class="empty sm">
+                <div class="empty-icon"><?php echo icon('landmark'); ?></div>
+                <h3>No bookmakers</h3>
+                <p>Add the bookmakers you use to track your bankroll.</p>
+                <a href="/bookmakers/add" class="btn btn-sm"><?php echo icon('plus', 'icon-sm'); ?> Add bookmaker</a>
+            </div>
+            <?php endif; ?>
+        </div>
+    </section>
+    </div>
+
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h2>Recent bets</h2>
+                <div class="hint">The latest bets you logged</div>
+            </div>
+            <a href="/bets" class="card-link">All bets <?php echo icon('chevron-right', 'icon-xs'); ?></a>
+        </div>
+        <div class="card-body flush">
+            <?php if ($recentBets): ?>
+            <div class="table-wrap">
+                <table class="table responsive">
                     <thead>
                         <tr>
                             <th>Event</th>
-                            <th>Type</th>
-                            <th>Odds</th>
-                            <th>Stake</th>
+                            <th class="num">Odds</th>
+                            <th class="num">Stake</th>
                             <th>Status</th>
-                            <th>Return</th>
+                            <th class="num">P&amp;L</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($recentBets as $bet): ?>
-                        <tr class="row-<?php echo $bet['status']; ?>">
-                            <td><a href="/bets/<?php echo $bet['id']; ?>"><?php echo sanitize($bet['event_name']); ?></a></td>
-                            <td><?php echo ucfirst(str_replace('_', ' ', $bet['bet_type'])); ?></td>
-                            <td><?php echo number_format($bet['odds'], 2); ?></td>
-                            <td><?php echo formatCurrency($bet['stake'], $userData['currency']); ?></td>
-                            <td><?php echo getStatusBadge($bet['status']); ?></td>
-                            <td><?php echo $bet['actual_return'] ? formatCurrency($bet['actual_return'], $userData['currency']) : '-'; ?></td>
+                        <?php foreach ($recentBets as $bet): $profit = betProfit($bet); ?>
+                        <tr class="is-link" data-href="/bets/<?php echo (int)$bet['id']; ?>">
+                            <td class="m-main" data-label="Event">
+                                <div class="cell-main">
+                                    <?php echo sportBadge($bet['sport_name']); ?>
+                                    <div style="min-width:0">
+                                        <a href="/bets/<?php echo (int)$bet['id']; ?>" class="cell-title"><?php echo e($bet['event_name']); ?></a>
+                                        <span class="cell-sub"><?php echo e($bet['selection']); ?></span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="num m-inline" data-label="Odds"><span class="mono"><?php echo formatOdds($bet['odds']); ?></span></td>
+                            <td class="num m-inline" data-label="Stake"><?php echo formatCurrency($bet['stake']); ?></td>
+                            <td class="m-end" data-label="Status"><?php echo getStatusBadge($bet['status']); ?></td>
+                            <td class="num m-inline <?php echo $profit === null ? 'text-muted' : toneClass($profit); ?>" data-label="P&amp;L" style="font-weight:600"><?php echo $profit === null ? '—' : formatSigned($profit); ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
-            <a href="/bets" class="btn btn-secondary">View All Bets</a>
-        </div>
-        
-        <div class="dashboard-section">
-            <h3>Pending Bets (<?php echo count($pendingBets); ?>)</h3>
-            <div class="pending-bets">
-                <?php if (count($pendingBets) > 0): ?>
-                <?php foreach (array_slice($pendingBets, 0, 5) as $bet): ?>
-                <div class="pending-bet-card">
-                    <div class="bet-event">
-                        <strong><?php echo sanitize($bet['event_name']); ?></strong>
-                        <span class="date"><?php echo formatDate($bet['event_date']); ?></span>
-                    </div>
-                    <div class="bet-odds">
-                        <span class="label">Odds:</span>
-                        <span><?php echo number_format($bet['odds'], 2); ?></span>
-                    </div>
-                    <div class="bet-stake">
-                        <span class="label">Stake:</span>
-                        <span><?php echo formatCurrency($bet['stake'], $userData['currency']); ?></span>
-                    </div>
-                    <div class="bet-return">
-                        <span class="label">Potential Return:</span>
-                        <span><?php echo formatCurrency($bet['potential_return'], $userData['currency']); ?></span>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-                <?php else: ?>
-                <p class="empty-state">No pending bets</p>
-                <?php endif; ?>
+            <?php else: ?>
+            <div class="empty sm">
+                <div class="empty-icon"><?php echo icon('receipt-text'); ?></div>
+                <h3>No bets yet</h3>
+                <p>Your latest bets will appear here.</p>
             </div>
+            <?php endif; ?>
         </div>
-    </div>
-    
-    <!-- Quick Actions -->
-    <div class="quick-actions">
-        <a href="/bets/add" class="btn btn-primary btn-large">+ Add Bet</a>
-    </div>
+    </section>
 </div>
 
+<?php include __DIR__ . '/partials/cashout-dialog.php'; ?>
+
+<dialog class="modal wide" id="dayDialog">
+    <div class="modal-head">
+        <span class="modal-icon"><?php echo icon('calendar-days'); ?></span>
+        <div>
+            <h2 data-day-title></h2>
+            <p data-day-sub></p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm close" data-dialog-close aria-label="Close"><?php echo icon('x', 'icon-sm'); ?></button>
+    </div>
+    <div class="modal-body" style="padding:14px 0 10px">
+        <div class="list" data-day-list></div>
+    </div>
+</dialog>
+
+<script type="application/json" id="calendarData"><?php echo json_encode(['summary' => $dailySummary, 'bets' => $betsByDate], JSON_HEX_TAG | JSON_HEX_AMP); ?></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const bankrollHistory = <?php echo json_encode($bankrollHistory); ?>;
-    const bankrollLabels = bankrollHistory.map(function(point) {
-        return point.snapshot_date;
-    });
-    const bankrollValues = bankrollHistory.map(function(point) {
-        return Number(point.balance);
-    });
+document.addEventListener('DOMContentLoaded', function () {
+    const history = <?php echo json_encode(array_map(function ($p) { return ['d' => $p['snapshot_date'], 'v' => (float)$p['balance']]; }, $bankrollHistory)); ?>;
+    const monthly = <?php echo json_encode(array_values(array_map(function ($m) { return ['m' => $m['label'], 'v' => $m['profit']]; }, $monthlyPl))); ?>;
 
-    // Bankroll chart
-    const bankrollCtx = document.getElementById('bankrollChart');
-    if (bankrollCtx) {
-        const bankrollGradient = bankrollCtx.getContext('2d').createLinearGradient(0, 0, 0, 260);
-        bankrollGradient.addColorStop(0, 'rgba(0, 208, 132, 0.35)');
-        bankrollGradient.addColorStop(1, 'rgba(0, 208, 132, 0.02)');
-
-        new Chart(bankrollCtx, {
+    BL.chart(document.getElementById('bankrollChart'), function (t, canvas) {
+        const o = BL.chartDefaults(t);
+        const up = history.length < 2 || history[history.length - 1].v >= history[0].v;
+        const color = up ? t.win : t.loss;
+        o.scales.x.ticks.maxTicksLimit = 6;
+        o.scales.y.ticks.callback = (v) => BL.money(v, { compact: true });
+        o.plugins.tooltip.callbacks = { label: (c) => ' ' + BL.money(c.parsed.y) };
+        return {
             type: 'line',
             data: {
-                labels: bankrollLabels,
+                labels: history.map((p) => new Date(p.d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
                 datasets: [{
-                    label: 'Bankroll',
-                    data: bankrollValues,
-                    borderColor: '#00d084',
-                    backgroundColor: bankrollGradient,
+                    data: history.map((p) => p.v),
+                    borderColor: color,
+                    backgroundColor: BL.gradient(canvas, color, 220),
                     fill: true,
-                    tension: 0.35,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
-                }]
+                    cubicInterpolationMode: 'monotone',
+                    borderWidth: 2.2,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: color,
+                    pointHoverBorderColor: t.surface,
+                    pointHoverBorderWidth: 2,
+                }],
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
-                    },
-                    y: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
-                    }
-                }
-            }
-        });
-    }
-    
-    // Sport chart
-    const sportCtx = document.getElementById('sportChart');
-    if (sportCtx) {
-        const profitBySport = <?php echo json_encode($profitBySport); ?>;
-        new Chart(sportCtx, {
+            options: o,
+        };
+    });
+
+    BL.chart(document.getElementById('monthlyChart'), function (t) {
+        const o = BL.chartDefaults(t);
+        o.scales.y.ticks.callback = (v) => BL.money(v, { compact: true });
+        o.plugins.tooltip.callbacks = { label: (c) => ' ' + BL.money(c.parsed.y, { sign: true }) };
+        return {
             type: 'bar',
             data: {
-                labels: profitBySport.map(function(row) {
-                    return row.sport_name || row.bookmaker_name || 'Unknown';
-                }),
+                labels: monthly.map((m) => new Date(m.m + '-15').toLocaleDateString('en-US', { month: 'short' })),
                 datasets: [{
-                    data: profitBySport.map(function(row) {
-                        return Number(row.profit_loss || row.profit || 0);
-                    }),
-                    backgroundColor: profitBySport.map(function(row) {
-                        return Number(row.profit_loss || row.profit || 0) >= 0 ? '#00d084' : '#ff4757';
-                    }),
-                }]
+                    data: monthly.map((m) => m.v),
+                    backgroundColor: monthly.map((m) => m.v >= 0 ? t.win : t.loss),
+                    borderRadius: 6,
+                    maxBarThickness: 34,
+                }],
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
-                    },
-                    y: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(148, 163, 184, 0.08)' }
-                    }
-                }
-            }
-        });
-    }
-});
-
-// Calendar rendering
-document.addEventListener('DOMContentLoaded', function() {
-    const dailySummary = <?php echo json_encode($dailySummary ?? []); ?>;
-    const betsByDate = <?php echo json_encode($betsByDate ?? []); ?>;
-    const calendarEl = document.getElementById('miniCalendar');
-    const modal = document.createElement('div');
-    modal.id = 'calendarModal';
-    modal.className = 'modal';
-    modal.style.display = 'none';
-    modal.innerHTML = `
-        <div class="modal-content small">
-            <div class="modal-header"><h4 id="modalTitle"></h4><button class="modal-close" onclick="closeCalendarModal()">&times;</button></div>
-            <div class="modal-body" id="modalBody"></div>
-        </div>`;
-    document.body.appendChild(modal);
-
-    // Tooltip for calendar day hover
-    const calendarTooltip = document.createElement('div');
-    calendarTooltip.id = 'calendarTooltip';
-    calendarTooltip.style.position = 'absolute';
-    calendarTooltip.style.display = 'none';
-    calendarTooltip.style.pointerEvents = 'none';
-    calendarTooltip.className = 'calendar-tooltip';
-    document.body.appendChild(calendarTooltip);
-
-    function showCalendarTooltip(e, key) {
-        const data = dailySummary[key];
-        const bets = betsByDate[key] || [];
-        let html = '';
-        html += `<div class="tt-row"><strong>${bets.length} bet${bets.length !== 1 ? 's' : ''}</strong></div>`;
-        if (data && typeof data.profit_loss !== 'undefined') {
-            const pl = Number(data.profit_loss || 0);
-            html += `<div class="tt-row">P/L: <span class="${pl>=0? 'positive' : 'negative'}">${formatCurrency(pl, '<?php echo $userData['currency']; ?>')}</span></div>`;
-        }
-        calendarTooltip.innerHTML = html;
-        calendarTooltip.style.display = 'block';
-        moveCalendarTooltip(e);
-    }
-
-    function moveCalendarTooltip(e) {
-        const tt = calendarTooltip;
-        if (!tt || tt.style.display === 'none') return;
-        const pad = 12;
-        let x = e.pageX + pad;
-        let y = e.pageY + pad;
-        const rect = tt.getBoundingClientRect();
-        if (x + rect.width > window.pageXOffset + document.documentElement.clientWidth) x = e.pageX - rect.width - pad;
-        if (y + rect.height > window.pageYOffset + document.documentElement.clientHeight) y = e.pageY - rect.height - pad;
-        tt.style.left = x + 'px';
-        tt.style.top = y + 'px';
-    }
-
-    function hideCalendarTooltip() {
-        calendarTooltip.style.display = 'none';
-    }
-
-    // Calendar state: currently displayed month
-    let displayed = new Date();
-
-    function renderWeekdayHeaders() {
-        const headersEl = document.querySelector('.weekday-headers');
-        if (!headersEl) return;
-        const weekdayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-        headersEl.innerHTML = '';
-        weekdayNames.forEach(n => {
-            const el = document.createElement('div');
-            el.className = 'weekday-header';
-            el.textContent = n;
-            headersEl.appendChild(el);
-        });
-    }
-
-    function startOfCalendarGrid(year, month) {
-        const first = new Date(year, month, 1);
-        const weekday = (first.getDay() + 6) % 7; // Monday=0
-        const start = new Date(first);
-        start.setDate(first.getDate() - weekday);
-        return start;
-    }
-
-    function renderCalendar() {
-        if (!calendarEl) return;
-        calendarEl.innerHTML = '';
-        const year = displayed.getFullYear();
-        const month = displayed.getMonth();
-        const firstOfMonth = new Date(year, month, 1);
-        const lastOfMonth = new Date(year, month + 1, 0);
-        const monthLabel = firstOfMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' });
-        document.getElementById('calMonthLabel').textContent = monthLabel;
-
-        const start = startOfCalendarGrid(year, month);
-        const totalDays = Math.ceil(( (lastOfMonth - start) / 86400000 + 1) / 7) * 7;
-
-        for (let i = 0; i < totalDays; i++) {
-            const d = new Date(start);
-            d.setDate(start.getDate() + i);
-            const key = d.toISOString().slice(0,10);
-            const dayDiv = document.createElement('div');
-            dayDiv.className = 'calendar-day';
-            if (d.getMonth() !== month) dayDiv.classList.add('muted');
-            const amount = dailySummary[key] ? Number(dailySummary[key].total_staked || 0) : 0;
-            const profit = dailySummary[key] ? Number(dailySummary[key].profit_loss || 0) : null;
-            if (dailySummary[key]) {
-                dayDiv.classList.add('has-bets');
-                if (profit > 0) dayDiv.classList.add('day-win');
-                else if (profit < 0) dayDiv.classList.add('day-loss');
-                else dayDiv.classList.add('day-neutral');
-            }
-            dayDiv.innerHTML = `<div class="date">${d.getDate()}</div><div class="amt">${amount > 0 ? formatCurrency(amount, '<?php echo $userData['currency']; ?>') : ''}</div>`;
-            dayDiv.dataset.date = key;
-            dayDiv.addEventListener('click', function() {
-                showBetsForDate(this.dataset.date);
-            });
-            // Tooltip handlers
-            dayDiv.addEventListener('mouseenter', function(e){ showCalendarTooltip(e, key); });
-            dayDiv.addEventListener('mousemove', function(e){ moveCalendarTooltip(e); });
-            dayDiv.addEventListener('mouseleave', function(){ hideCalendarTooltip(); });
-
-            calendarEl.appendChild(dayDiv);
-        }
-    }
-
-    // Month navigation
-    document.getElementById('calPrev').addEventListener('click', function(){ displayed.setMonth(displayed.getMonth()-1); renderCalendar(); });
-    document.getElementById('calNext').addEventListener('click', function(){ displayed.setMonth(displayed.getMonth()+1); renderCalendar(); });
-
-    renderWeekdayHeaders();
-
-    window.closeCalendarModal = function() {
-        document.getElementById('calendarModal').style.display = 'none';
-    }
-
-    function showBetsForDate(date) {
-        const list = betsByDate[date] || [];
-        const title = `Bets on ${date}`;
-        const body = document.getElementById('modalBody');
-        document.getElementById('modalTitle').textContent = title;
-        if (list.length === 0) {
-            body.innerHTML = '<p>No bets for this day.</p>';
-        } else {
-            let html = '<table class="table small"><thead><tr><th>Event</th><th>Odds</th><th>Stake</th><th>Status</th><th>Return</th></tr></thead><tbody>';
-            list.forEach(b => {
-                html += `<tr><td><a href="/bets/${b.id}">${sanitizeClient(b.event_name)}</a></td><td>${Number(b.odds).toFixed(2)}</td><td>${formatCurrency(Number(b.stake), '<?php echo $userData['currency']; ?>')}</td><td>${b.status}</td><td>${b.actual_return ? formatCurrency(Number(b.actual_return), '<?php echo $userData['currency']; ?>') : '-'}</td></tr>`;
-            });
-            html += '</tbody></table>';
-            body.innerHTML = html;
-        }
-        document.getElementById('calendarModal').style.display = 'flex';
-    }
-
-    function sanitizeClient(str) {
-        if (!str) return '';
-        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    renderCalendar();
+            options: o,
+        };
+    });
 });
 </script>

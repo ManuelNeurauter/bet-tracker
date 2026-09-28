@@ -32,6 +32,15 @@ class Tag {
     }
     
     /**
+     * Check whether the user already has a tag with this name
+     */
+    public function nameExists($userId, $name, $exceptId = null) {
+        $stmt = $this->db->prepare('SELECT id FROM tags WHERE user_id = ? AND name = ? AND id <> ?');
+        $stmt->execute([$userId, $name, (int)$exceptId]);
+        return (bool)$stmt->fetch();
+    }
+
+    /**
      * Get tag by ID
      */
     public function getById($tagId, $userId) {
@@ -86,6 +95,54 @@ class Tag {
         return $stmt->fetchAll();
     }
     
+    /**
+     * Get tags for several bets, keyed by bet id
+     */
+    public function getByBets(array $betIds) {
+        $betIds = array_values(array_filter(array_map('intval', $betIds)));
+        if (!$betIds) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($betIds), '?'));
+        $stmt = $this->db->prepare("
+            SELECT bt.bet_id, t.* FROM tags t
+            JOIN bet_tags bt ON t.id = bt.tag_id
+            WHERE bt.bet_id IN ($placeholders)
+            ORDER BY t.name
+        ");
+        $stmt->execute($betIds);
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $out[$row['bet_id']][] = $row;
+        }
+        return $out;
+    }
+
+    /**
+     * Usage and profit/loss per tag
+     */
+    public function getStatistics($userId) {
+        $stmt = $this->db->prepare("
+            SELECT t.id,
+                   COUNT(b.id) as total_bets,
+                   SUM(CASE WHEN b.status = 'won' THEN 1 ELSE 0 END) as won_bets,
+                   SUM(CASE WHEN b.status IN ('won', 'lost', 'cashout') THEN 1 ELSE 0 END) as settled_bets,
+                   SUM(CASE WHEN b.status IN ('won', 'lost', 'cashout') THEN b.stake ELSE 0 END) as total_staked,
+                   SUM(CASE WHEN b.status IN ('won', 'lost', 'cashout') THEN COALESCE(b.actual_return, 0) - b.stake ELSE 0 END) as profit_loss
+            FROM tags t
+            LEFT JOIN bet_tags bt ON t.id = bt.tag_id
+            LEFT JOIN bets b ON b.id = bt.bet_id AND b.user_id = t.user_id
+            WHERE t.user_id = ?
+            GROUP BY t.id
+        ");
+        $stmt->execute([$userId]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $out[$row['id']] = $row;
+        }
+        return $out;
+    }
+
     /**
      * Get bets by tag
      */

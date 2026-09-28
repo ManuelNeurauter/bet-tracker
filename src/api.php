@@ -73,12 +73,16 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
             exit;
         }
 
-        $betId = $input['betId'] ?? null;
+        $betId = (int)($input['betId'] ?? 0);
         $status = $input['status'] ?? null;
-        $actualReturn = $input['actualReturn'] ?? null;
+        $amount = isset($input['cashoutAmount']) && is_numeric($input['cashoutAmount'])
+            ? round((float)$input['cashoutAmount'], 2)
+            : (isset($input['actualReturn']) && is_numeric($input['actualReturn']) ? round((float)$input['actualReturn'], 2) : null);
         
-        if (!$betId || !$status) {
+        if (!$betId || !array_key_exists((string)$status, betStatuses())) {
             $response = ['success' => false, 'message' => 'Missing required fields'];
+        } elseif ($status === BET_STATUS_CASHOUT && ($amount === null || $amount < 0)) {
+            $response = ['success' => false, 'message' => 'Enter the cashout amount you received'];
         } else {
             $userId = getCurrentUserId();
             $betModel = new Bet();
@@ -88,25 +92,22 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
             if (!$bet) {
                 $response = ['success' => false, 'message' => 'Bet not found'];
             } else {
+                $cashoutAmount = $status === BET_STATUS_CASHOUT ? $amount : null;
                 $actualReturn = calculateSettlementReturn(
                     $status,
                     (float)$bet['stake'],
                     (float)$bet['odds'],
-                    $input['cashoutAmount'] ?? null,
-                    $actualReturn,
+                    $cashoutAmount,
+                    $cashoutAmount,
                     (float)($bet['tax_amount'] ?? 0)
                 );
 
                 $updateData = [
                     'status' => $status,
                     'actual_return' => $actualReturn,
-                    'settled_at' => date('Y-m-d H:i:s')
+                    'cashout_amount' => $cashoutAmount,
+                    'settled_at' => $status === BET_STATUS_PENDING ? null : date('Y-m-d H:i:s'),
                 ];
-                
-                // For cashout, use the actual return as cashout amount
-                if ($status === 'cashout' && $actualReturn !== null) {
-                    $updateData['cashout_amount'] = $actualReturn;
-                }
                 
                 if ($betModel->update($betId, $userId, $updateData)) {
                     $oldImpact = calculateSettlementImpact(
@@ -121,7 +122,7 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                         $status,
                         (float)$bet['stake'],
                         (float)$bet['odds'],
-                        $input['cashoutAmount'] ?? null,
+                        $cashoutAmount,
                         $actualReturn,
                         (float)($bet['tax_amount'] ?? 0)
                     );
@@ -132,12 +133,14 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                         $bookmaker = $bookmakerModel->getById($bookmakerId, $userId);
                         if ($bookmaker) {
                             $bookmakerModel->update($bookmakerId, $userId, [
-                                'account_balance' => (float)$bookmaker['account_balance'] - $oldImpact + $newImpact,
+                                'account_balance' => round((float)$bookmaker['account_balance'] - $oldImpact + $newImpact, 2),
                             ]);
                             syncBankrollSnapshot($userId);
                         }
                     }
-                    
+
+                    $labels = betStatuses();
+                    setFlash('success', e(plainText($bet['event_name'])) . ' marked as ' . strtolower($labels[$status]) . '.');
                     $response = ['success' => true, 'message' => 'Bet updated successfully'];
                 } else {
                     $response = ['success' => false, 'message' => 'Failed to update bet'];
