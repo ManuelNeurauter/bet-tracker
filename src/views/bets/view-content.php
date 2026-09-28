@@ -3,6 +3,11 @@ $profit = betProfit($bet);
 $isPending = $bet['status'] === BET_STATUS_PENDING;
 $taxAmount = (float)($bet['tax_amount'] ?? 0);
 $netPotential = max(0, (float)$bet['potential_return'] - $taxAmount);
+$legs = $legs ?? [];
+$isMulti = isMultiLegType($bet['bet_type']);
+$chained = isChainedBetType($bet['bet_type']);
+$legTally = array_count_values(array_column($legs, 'status'));
+$legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
 ?>
 <div class="page-header">
     <div>
@@ -64,6 +69,69 @@ $netPotential = max(0, (float)$bet['potential_return'] - $taxAmount);
             </div>
             <?php endif; ?>
         </section>
+
+        <?php if ($legs || $isMulti): ?>
+        <section class="card legs-card" data-legs-card data-bet-id="<?php echo (int)$bet['id']; ?>">
+            <div class="card-header">
+                <h2>Selections</h2>
+                <?php if ($legs): ?><span class="badge"><?php echo count($legs); ?> leg<?php echo count($legs) === 1 ? '' : 's'; ?></span><?php endif; ?>
+            </div>
+            <?php if ($legs): ?>
+            <ol class="leg-list">
+                <?php foreach ($legs as $i => $leg): ?>
+                <li class="leg-item" data-status="<?php echo e($leg['status']); ?>">
+                    <span class="leg-mark" title="<?php echo e(legStatuses()[$leg['status']] ?? $leg['status']); ?>">
+                        <?php echo isset($legIcons[$leg['status']]) ? icon($legIcons[$leg['status']]) : $i + 1; ?>
+                    </span>
+                    <div class="leg-text">
+                        <div class="leg-pick"><?php echo e($leg['selection']); ?></div>
+                        <?php if ($leg['event_name'] !== ''): ?><div class="leg-event"><?php echo e($leg['event_name']); ?></div><?php endif; ?>
+                    </div>
+                    <div class="leg-side">
+                        <?php if ($leg['status'] === BET_STATUS_PENDING): ?>
+                        <div class="leg-settle">
+                            <button type="button" class="btn btn-win btn-sm btn-icon" data-leg-settle="won" data-leg-id="<?php echo (int)$leg['id']; ?>" title="Selection won" aria-label="Selection <?php echo $i + 1; ?> won"><?php echo icon('check', 'icon-sm'); ?></button>
+                            <button type="button" class="btn btn-loss btn-sm btn-icon" data-leg-settle="lost" data-leg-id="<?php echo (int)$leg['id']; ?>" title="Selection lost" aria-label="Selection <?php echo $i + 1; ?> lost"><?php echo icon('x', 'icon-sm'); ?></button>
+                            <button type="button" class="btn btn-sm btn-icon" data-leg-settle="void" data-leg-id="<?php echo (int)$leg['id']; ?>" title="Selection void (odds count as 1.00)" aria-label="Selection <?php echo $i + 1; ?> void"><?php echo icon('circle-slash', 'icon-sm'); ?></button>
+                        </div>
+                        <?php else: ?>
+                        <?php echo getStatusBadge($leg['status']); ?>
+                        <?php endif; ?>
+                        <span class="odds-chip" title="Odds">@ <?php echo formatOdds($leg['odds']); ?></span>
+                    </div>
+                </li>
+                <?php endforeach; ?>
+            </ol>
+            <div class="legs-summary">
+                <span>
+                    <?php
+                    $parts = [];
+                    foreach (legStatuses() as $key => $label) {
+                        if (!empty($legTally[$key])) $parts[] = $legTally[$key] . ' ' . strtolower($label);
+                    }
+                    echo e(implode(' · ', $parts));
+                    ?>
+                </span>
+                <?php if ($chained): ?>
+                <span>Combined odds <strong><?php echo formatOdds(combinedLegOdds($legs)); ?></strong></span>
+                <?php endif; ?>
+            </div>
+            <?php if ($chained && $isPending && !empty($legTally[BET_STATUS_LOST])): ?>
+            <div class="legs-summary text-loss">
+                <span><?php echo icon('circle-alert', 'icon-sm'); ?> A selection lost, so this <?php echo e(strtolower(betTypeLabel($bet['bet_type']))); ?> is lost. Settle it above.</span>
+            </div>
+            <?php elseif ($chained && $isPending && empty($legTally[BET_STATUS_PENDING]) && empty($legTally[BET_STATUS_LOST])): ?>
+            <div class="legs-summary text-win">
+                <span><?php echo icon('circle-check', 'icon-sm'); ?> Every selection is in. Settle the bet above.</span>
+            </div>
+            <?php endif; ?>
+            <?php else: ?>
+            <div class="card-body">
+                <p class="text-muted" style="font-size:13px">No selections recorded. <a href="/bets/<?php echo (int)$bet['id']; ?>/edit">Add the legs of this <?php echo e(strtolower(betTypeLabel($bet['bet_type']))); ?></a> to track each pick.</p>
+            </div>
+            <?php endif; ?>
+        </section>
+        <?php endif; ?>
 
         <?php if ($bet['notes']): ?>
         <section class="card">

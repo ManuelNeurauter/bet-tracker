@@ -81,6 +81,30 @@ class BetController {
             'notes' => postString('notes'),
         ];
 
+        [$legs, $legErrors] = self::readLegs($betType);
+        if ($legs) {
+            // Summaries of the legs stand in for the bet's own event and selection when left blank
+            if ($data['selection'] === '') {
+                $data['selection'] = mb_substr(implode(' / ', array_column($legs, 'selection')), 0, 500);
+            }
+            if ($data['event_name'] === '') {
+                $events = array_values(array_unique(array_filter(array_column($legs, 'event_name'))));
+                $data['event_name'] = $events
+                    ? mb_substr(implode(' / ', $events), 0, 255)
+                    : count($legs) . '-leg ' . strtolower(betTypeLabel($betType));
+            }
+            if (isChainedBetType($betType) && postFloatOrNull('odds') === null) {
+                $data['odds'] = combinedLegOdds($legs);
+            }
+            // A chained bet only wins when every leg won, so open legs follow the bet
+            if (isChainedBetType($betType) && $data['status'] === BET_STATUS_WON) {
+                foreach ($legs as &$leg) {
+                    if ($leg['status'] === BET_STATUS_PENDING) $leg['status'] = BET_STATUS_WON;
+                }
+                unset($leg);
+            }
+        }
+
         // The return override only applies to wins (boosts, dead heats). The field stays in the
         // form while hidden, so a stale value must not leak into a lost or cashed-out bet.
         if ($data['status'] !== BET_STATUS_WON) {
@@ -95,6 +119,7 @@ class BetController {
 
         $errors = [];
         if ($statusError) $errors[] = $statusError;
+        $errors = array_merge($errors, $legErrors);
         if ($data['event_name'] === '') $errors[] = 'Event name is required.';
         if ($data['selection'] === '') $errors[] = 'Selection is required.';
         if ($data['odds'] < 1.01) $errors[] = 'Odds must be at least 1.01.';
@@ -103,7 +128,54 @@ class BetController {
             $errors[] = 'Enter the cashout amount you received.';
         }
 
-        return [$data, $errors];
+        return [$data, $errors, $legs];
+    }
+
+    /**
+     * Read the legs of a multiple from the form. Returns [legs, errors].
+     */
+    private static function readLegs($betType) {
+        if (!isMultiLegType($betType) || !is_array($_POST['legs'] ?? null)) {
+            return [[], []];
+        }
+
+        $legs = [];
+        $errors = [];
+        foreach ($_POST['legs'] as $row) {
+            if (!is_array($row)) continue;
+            $field = function ($key) use ($row) {
+                return isset($row[$key]) && is_string($row[$key]) ? trim($row[$key]) : '';
+            };
+            $event = mb_substr($field('event_name'), 0, 255);
+            $selection = mb_substr($field('selection'), 0, 500);
+            $odds = $field('odds');
+            if ($event === '' && $selection === '' && $odds === '') {
+                continue; // an untouched empty row
+            }
+            $status = $field('status');
+            $legs[] = [
+                'event_name' => $event,
+                'selection' => $selection,
+                'odds' => is_numeric($odds) ? round((float)$odds, 3) : 0,
+                'status' => array_key_exists($status, legStatuses()) ? $status : BET_STATUS_PENDING,
+            ];
+            $n = count($legs);
+            if ($selection === '') $errors[] = "Selection $n needs a pick.";
+            if (!is_numeric($odds) || (float)$odds < 1.01) $errors[] = "Selection $n needs odds of at least 1.01.";
+        }
+
+        if ($legs) {
+            [$min, $max] = legCountRange($betType);
+            $label = betTypeLabel($betType);
+            $article = preg_match('/^[AEIOU]/', $label) ? 'An' : 'A';
+            if ($min === $max && count($legs) !== $min) {
+                $errors[] = "$article " . strtolower($label) . " has exactly $min selections, you added " . count($legs) . '.';
+            } elseif (count($legs) < $min) {
+                $errors[] = "$article " . strtolower($label) . " needs at least $min selections.";
+            }
+        }
+
+        return [$legs, $errors];
     }
 
     /**
@@ -159,6 +231,7 @@ class BetController {
         $userId = getCurrentUserId();
         extract(self::formData($userId));
         $bet = null;
+        $legs = [];
         $selectedTags = [];
         $selectedTipsters = [];
         $old = $_SESSION['old_bet'] ?? null;
@@ -179,7 +252,7 @@ class BetController {
         }
 
         $userId = getCurrentUserId();
-        [$data, $errors] = self::readForm($userId);
+        [$data, $errors, $legs] = self::readForm($userId);
         $data['user_id'] = $userId;
 
         if ($errors) {
@@ -220,6 +293,7 @@ class BetController {
         }
 
         self::syncLinks($betId, $userId);
+        (new BetLeg())->replaceForBet($betId, $legs);
 
         setFlash('success', 'Bet added.');
         redirect(isset($_POST['add_another']) ? '/bets/add' : '/bets/' . $betId);
@@ -244,6 +318,7 @@ class BetController {
 
         $tags = $tagModel->getByBet($betId);
         $tipsters = $tipsterModel->getByBet($betId);
+        $legs = (new BetLeg())->getByBet($betId);
 
         include __DIR__ . '/../views/bets/view.php';
     }
@@ -267,6 +342,7 @@ class BetController {
         $tipsterModel = new Tipster();
         $selectedTags = array_map('intval', array_column($tagModel->getByBet($betId), 'id'));
         $selectedTipsters = array_map('intval', array_column($tipsterModel->getByBet($betId), 'id'));
+        $legs = (new BetLeg())->getByBet($betId);
         $old = $_SESSION['old_bet'] ?? null;
         unset($_SESSION['old_bet']);
 
@@ -293,7 +369,7 @@ class BetController {
             notFound('That bet does not exist or was deleted.');
         }
 
-        [$data, $errors] = self::readForm($userId, $currentBet['status']);
+        [$data, $errors, $legs] = self::readForm($userId, $currentBet['status']);
         if ($errors) {
             $_SESSION['old_bet'] = $_POST;
             setFlash('error', implode('<br>', array_map('e', $errors)));
@@ -347,6 +423,7 @@ class BetController {
         }
 
         self::syncLinks($betId, $userId);
+        (new BetLeg())->replaceForBet($betId, $legs);
 
         setFlash('success', 'Bet updated.');
         redirect('/bets/' . $betId);
@@ -387,6 +464,7 @@ class BetController {
 
         $tagModel = new Tag();
         $betTags = $tagModel->getByBets(array_column($bets, 'id'));
+        $legCounts = (new BetLeg())->countByBets(array_column($bets, 'id'));
 
         $bookmakerModel = new Bookmaker();
         $sportModel = new Sport();

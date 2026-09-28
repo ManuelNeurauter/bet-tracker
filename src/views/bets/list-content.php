@@ -198,7 +198,7 @@ $lastRow = min($totalBets, $page * ITEMS_PER_PAGE);
                                 <a href="/bets/<?php echo (int)$bet['id']; ?>" class="cell-title"><?php echo e($bet['event_name']); ?></a>
                                 <span class="cell-sub">
                                     <?php echo e($bet['selection']); ?>
-                                    <?php if ($bet['bet_type'] !== 'single'): ?> · <?php echo e(betTypeLabel($bet['bet_type'])); ?><?php endif; ?>
+                                    <?php if ($bet['bet_type'] !== 'single'): ?> · <?php echo e(betTypeLabel($bet['bet_type'])); ?><?php endif; ?><?php if (!empty($legCounts[(int)$bet['id']])): ?> · <?php echo $legCounts[(int)$bet['id']]; ?> legs<?php endif; ?>
                                 </span>
                                 <?php if ($rowTags): ?>
                                 <div class="chips" style="margin-top:6px">
