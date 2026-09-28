@@ -102,7 +102,8 @@ class Bookmaker {
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as cashout_bets,
                 SUM(stake) as total_staked,
                 SUM(CASE WHEN actual_return IS NOT NULL THEN actual_return ELSE 0 END) as total_returned,
-                SUM(CASE WHEN actual_return IS NOT NULL THEN (actual_return - stake) ELSE 0 END) as profit_loss
+                SUM(CASE WHEN actual_return IS NOT NULL THEN (actual_return - stake) ELSE 0 END) as profit_loss,
+                SUM(CASE WHEN status = ? THEN COALESCE(tax_amount, 0) ELSE 0 END) as tax_paid
             FROM bets
             WHERE bookmaker_id = ? AND user_id = ? AND status IN (?, ?, ?)
         ');
@@ -111,6 +112,7 @@ class Bookmaker {
             BET_STATUS_WON,
             BET_STATUS_LOST,
             BET_STATUS_CASHOUT,
+            BET_STATUS_WON,
             $bookmakerId,
             $userId,
             BET_STATUS_WON,

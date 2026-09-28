@@ -22,7 +22,7 @@ $edge = round($analytics['actual_win_rate'] - $analytics['implied_win_rate'], 1)
 <div class="page-header">
     <div>
         <h1>Statistics</h1>
-        <p class="subtitle">Based on <?php echo $totalBets; ?> settled bet<?php echo $totalBets === 1 ? '' : 's'; ?>. Pending and void bets are left out.</p>
+        <p class="subtitle">Based on <?php echo $totalBets; ?> settled bet<?php echo $totalBets === 1 ? '' : 's'; ?>. Open bets are left out.</p>
     </div>
     <div class="actions">
         <a href="/bets/export" class="btn"><?php echo icon('download'); ?> Export CSV</a>

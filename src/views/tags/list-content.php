@@ -38,7 +38,7 @@
             <span class="tag-swatch"><?php echo icon('tag', 'icon-sm'); ?></span>
             <div class="grow">
                 <div class="entity-name"><?php echo e($tag['name']); ?></div>
-                <div class="entity-sub"><?php echo $count; ?> <?php echo $count === 1 ? 'bet' : 'bets'; ?><?php echo $count > $settled ? ' · ' . ($count - $settled) . ' open or void' : ''; ?></div>
+                <div class="entity-sub"><?php echo $count; ?> <?php echo $count === 1 ? 'bet' : 'bets'; ?><?php echo $count > $settled ? ' · ' . ($count - $settled) . ' not settled' : ''; ?></div>
             </div>
         </div>
         <div class="entity-stats">

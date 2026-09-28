@@ -35,7 +35,7 @@ class BetController {
     /**
      * Read and validate the bet form. Returns [data, errors].
      */
-    private static function readForm($userId) {
+    private static function readForm($userId, $currentStatus = null) {
         $sportId = isset($_POST['sport_id']) && ctype_digit((string)$_POST['sport_id']) ? (int)$_POST['sport_id'] : null;
         $competitionId = isset($_POST['competition_id']) && ctype_digit((string)$_POST['competition_id']) ? (int)$_POST['competition_id'] : null;
 
@@ -47,9 +47,13 @@ class BetController {
             }
         }
 
-        $status = postString('status', BET_STATUS_PENDING);
-        if (!array_key_exists($status, betStatuses())) {
-            $status = BET_STATUS_PENDING;
+        $status = postString('status', $currentStatus ?? BET_STATUS_PENDING);
+        $statusError = null;
+        if (!array_key_exists($status, selectableStatuses($currentStatus))) {
+            $statusError = $status === BET_STATUS_PENDING
+                ? 'A settled bet cannot go back to pending. Pick won, lost or cashed out.'
+                : 'Pick a valid result for this bet.';
+            $status = $currentStatus ?? BET_STATUS_PENDING;
         }
         $betType = postString('bet_type', BET_TYPE_SINGLE);
         if (!array_key_exists($betType, betTypes())) {
@@ -90,6 +94,7 @@ class BetController {
         }
 
         $errors = [];
+        if ($statusError) $errors[] = $statusError;
         if ($data['event_name'] === '') $errors[] = 'Event name is required.';
         if ($data['selection'] === '') $errors[] = 'Selection is required.';
         if ($data['odds'] < 1.01) $errors[] = 'Odds must be at least 1.01.';
@@ -288,7 +293,7 @@ class BetController {
             notFound('That bet does not exist or was deleted.');
         }
 
-        [$data, $errors] = self::readForm($userId);
+        [$data, $errors] = self::readForm($userId, $currentBet['status']);
         if ($errors) {
             $_SESSION['old_bet'] = $_POST;
             setFlash('error', implode('<br>', array_map('e', $errors)));

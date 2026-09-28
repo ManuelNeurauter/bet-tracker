@@ -35,6 +35,7 @@ class BookmakerController {
         $totalBalance = array_sum(array_map(function ($bm) { return (float)$bm['account_balance']; }, $activeBookmakers));
         $totalBonus = array_sum(array_map(function ($bm) { return (float)$bm['bonus_balance']; }, $activeBookmakers));
         $totalProfit = array_sum(array_map(function ($bm) { return (float)($bm['stats']['profit_loss'] ?? 0); }, $bookmakers));
+        $totalTax = array_sum(array_map(function ($bm) { return (float)($bm['stats']['tax_paid'] ?? 0); }, $bookmakers));
         
         include __DIR__ . '/../views/bookmakers/list.php';
     }

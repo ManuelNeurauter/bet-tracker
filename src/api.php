@@ -79,7 +79,7 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
             ? round((float)$input['cashoutAmount'], 2)
             : (isset($input['actualReturn']) && is_numeric($input['actualReturn']) ? round((float)$input['actualReturn'], 2) : null);
         
-        if (!$betId || !array_key_exists((string)$status, betStatuses())) {
+        if (!$betId || !in_array((string)$status, [BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_CASHOUT], true)) {
             $response = ['success' => false, 'message' => 'Missing required fields'];
         } elseif ($status === BET_STATUS_CASHOUT && ($amount === null || $amount < 0)) {
             $response = ['success' => false, 'message' => 'Enter the cashout amount you received'];

@@ -604,21 +604,26 @@
                 let inner = `<span class="d">${d.getDate()}</span>`;
                 if (s) {
                     const pl = Number(s.profit_loss || 0);
+                    const staked = Number(s.total_staked || 0);
                     const settled = s.bet_count - s.pending_count;
+                    const shortMoney = (v) => {
+                        const abs = Math.abs(v);
+                        return abs >= 1000 ? (abs / 1000).toFixed(1) + 'k' : String(Math.round(abs));
+                    };
                     if (settled > 0 && Math.abs(pl) > 0.004) {
                         btn.classList.add(pl > 0 ? 'win' : 'loss');
                         btn.style.setProperty('--i', (0.25 + 0.75 * Math.min(1, Math.abs(pl) / maxAbs)).toFixed(2));
-                        const abs = Math.abs(pl);
-                        const short = (pl > 0 ? '+' : '−') + (abs >= 1000 ? (abs / 1000).toFixed(1) + 'k' : Math.round(abs));
-                        inner += `<span class="pl">${BL.money(pl, { sign: true, compact: true })}</span><span class="pl-short">${short}</span>`;
+                        inner += `<span class="pl">${BL.money(pl, { sign: true, compact: true })}</span><span class="pl-short">${pl > 0 ? '+' : '−'}${shortMoney(pl)}</span>`;
                     } else if (s.pending_count > 0) {
+                        // Upcoming or open: show how much is riding on the day
                         btn.classList.add('open');
-                        inner += `<span class="pl">${s.pending_count} open</span><span class="pl-short">${s.pending_count}●</span>`;
+                        inner += `<span class="pl">${BL.money(staked, { compact: true })}</span><span class="pl-short">${shortMoney(staked)}</span>`;
                     } else {
                         inner += `<span class="pl text-muted">±0</span><span class="pl-short text-muted">±0</span>`;
                     }
-                    inner += `<span class="n">${s.bet_count} bet${s.bet_count === 1 ? '' : 's'}</span>`;
-                    btn.setAttribute('aria-label', `${key}: ${s.bet_count} bets, ${BL.money(pl, { sign: true })}`);
+                    const staker = `${BL.money(staked, { compact: true })} staked`;
+                    inner += `<span class="n">${s.pending_count > 0 && settled === 0 ? `${s.pending_count} open` : staker}</span>`;
+                    btn.setAttribute('aria-label', `${key}: ${s.bet_count} bet${s.bet_count === 1 ? '' : 's'}, ${BL.money(staked)} staked${settled > 0 ? ', ' + BL.money(pl, { sign: true }) : ''}`);
                 } else {
                     btn.classList.add('empty-day');
                     btn.tabIndex = -1;

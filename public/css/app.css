@@ -1739,11 +1739,20 @@ a.cell-title:hover {
 }
 
 .toggle-chip span::before {
+    /* Hollow when off, filled with a tick when on, so an unpicked tag or tipster never looks selected */
     content: "";
-    width: 8px;
-    height: 8px;
+    box-sizing: border-box;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: var(--chip);
+    border: 1.5px solid color-mix(in srgb, var(--chip) 75%, transparent);
+    background: transparent;
+    transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+
+.toggle-chip input:checked + span::before {
+    border-color: var(--chip);
+    background: var(--chip) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 9px no-repeat;
 }
 
 .toggle-chip:hover span {
@@ -1764,8 +1773,16 @@ a.cell-title:hover {
 /* Status picker */
 .status-picker {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
+}
+
+.status-picker[data-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.status-picker[data-count="5"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .status-option {
@@ -3720,8 +3737,13 @@ fieldset.field > legend {
         padding: 18px 16px;
     }
 
-    .status-picker {
+    .status-picker,
+    .status-picker[data-count="5"] {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .status-picker[data-count="4"] {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .filters-grid {
@@ -3974,9 +3996,6 @@ fieldset.field > legend {
 }
 
 @media (max-width: 420px) {
-    .status-picker {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
     .hero-stat .value {
         font-size: 15px;
     }

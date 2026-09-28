@@ -161,7 +161,7 @@ foreach ($profitBySport as $row) {
         <div class="card-header">
             <div>
                 <h2>Calendar</h2>
-                <div class="hint">Daily profit and loss. Tap a day to see its bets.</div>
+                <div class="hint">Profit or loss per day, and the stake riding on upcoming days. Tap a day to see its bets.</div>
             </div>
             <div class="calendar-head">
                 <button type="button" class="btn btn-ghost btn-icon btn-sm" data-cal-prev aria-label="Previous month"><?php echo icon('chevron-left', 'icon-sm'); ?></button>
@@ -175,7 +175,7 @@ foreach ($profitBySport as $row) {
             <div class="legend mt-2">
                 <span><i style="--c:var(--win)"></i>Profit</span>
                 <span><i style="--c:var(--loss)"></i>Loss</span>
-                <span><i style="--c:var(--pending)"></i>Open bets</span>
+                <span><i style="--c:var(--pending)"></i>Staked, not settled</span>
                 <span><i style="--c:var(--accent)"></i>Today</span>
             </div>
         </div>

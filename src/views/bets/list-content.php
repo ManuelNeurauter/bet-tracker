@@ -1,5 +1,8 @@
 <?php
 $statusLabels = betStatuses();
+if (empty($statusCounts[BET_STATUS_VOID]) && $filters['status'] !== BET_STATUS_VOID) {
+    unset($statusLabels[BET_STATUS_VOID]); // void is no longer offered; show the tab only for older void bets
+}
 $totalAll = array_sum($statusCounts);
 $advancedKeys = ['sport_id', 'bookmaker_id', 'bet_type', 'tag_id', 'tipster_id', 'date_from', 'date_to', 'min_odds', 'max_odds', 'min_stake', 'max_stake'];
 $advancedActive = count(array_filter($advancedKeys, function ($k) use ($filters) { return $filters[$k] !== ''; }));

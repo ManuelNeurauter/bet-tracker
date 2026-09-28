@@ -383,6 +383,23 @@ function betStatuses() {
 }
 
 /**
+ * Statuses a user can pick for a bet. Void is not offered (issue #2) and a settled
+ * bet cannot go back to pending, so it is not settled again by accident.
+ * Pass the bet's current status when editing; null for a new bet.
+ */
+function selectableStatuses($currentStatus = null) {
+    $statuses = betStatuses();
+    $keep = [BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_CASHOUT];
+    if ($currentStatus === null || $currentStatus === BET_STATUS_PENDING) {
+        array_unshift($keep, BET_STATUS_PENDING);
+    }
+    if ($currentStatus === BET_STATUS_VOID) {
+        $keep[] = BET_STATUS_VOID; // older bets saved as void keep their status
+    }
+    return array_intersect_key($statuses, array_flip($keep));
+}
+
+/**
  * Human readable bet types
  */
 function betTypes() {

@@ -101,7 +101,7 @@ $renderBookmaker = function ($bm) {
             <span class="kpi-icon <?php echo $totalProfit >= 0 ? 'win' : 'loss'; ?>"><?php echo icon($totalProfit >= 0 ? 'trending-up' : 'trending-down'); ?></span>
         </div>
         <div class="kpi-value <?php echo toneClass($totalProfit); ?>"><?php echo formatSigned($totalProfit); ?></div>
-        <div class="kpi-meta">All bookmakers, archived included</div>
+        <div class="kpi-meta"><?php echo $totalTax > 0 ? formatCurrency($totalTax) . ' paid in tax on winnings' : 'All bookmakers, archived included'; ?></div>
     </div>
 </div>
 

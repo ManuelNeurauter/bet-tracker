@@ -11,6 +11,9 @@ $val = function ($key, $default = '') use ($bet, $old) {
     return $default;
 };
 $status = $val('status', BET_STATUS_PENDING);
+if (!array_key_exists($status, selectableStatuses($isEdit ? $bet['status'] : null))) {
+    $status = $isEdit ? $bet['status'] : BET_STATUS_PENDING;
+}
 $selectedTags = $old !== null ? array_map('intval', (array)($old['tags'] ?? [])) : ($selectedTags ?? []);
 $selectedTipsters = $old !== null ? array_map('intval', (array)($old['tipsters'] ?? [])) : ($selectedTipsters ?? []);
 $eventDate = $val('event_date');
@@ -153,11 +156,12 @@ $action = $isEdit ? '/bets/' . (int)$bet['id'] . '/edit' : '/bets/add';
                     <span class="step"><?php echo icon('flame'); ?></span>
                     <div>
                         <h2>Result</h2>
-                        <p>Leave it pending and settle it later from the bet list.</p>
+                        <p><?php echo ($isEdit && $bet['status'] !== BET_STATUS_PENDING) ? 'You can change the result, but a settled bet cannot go back to pending.' : 'Leave it pending and settle it later from the bet list.'; ?></p>
                     </div>
                 </div>
-                <div class="status-picker" role="radiogroup" aria-label="Status">
-                    <?php foreach (betStatuses() as $key => $label): ?>
+                <?php $statusChoices = selectableStatuses($isEdit ? $bet['status'] : null); ?>
+                <div class="status-picker" role="radiogroup" aria-label="Status" data-count="<?php echo count($statusChoices); ?>">
+                    <?php foreach ($statusChoices as $key => $label): ?>
                     <label class="status-option <?php echo $key; ?>">
                         <input type="radio" name="status" value="<?php echo $key; ?>" <?php echo $status === $key ? 'checked' : ''; ?>>
                         <span><?php echo icon($statusIcons[$key]); ?><?php echo e($label); ?></span>

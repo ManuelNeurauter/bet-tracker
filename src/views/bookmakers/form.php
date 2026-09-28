@@ -113,6 +113,8 @@ $action = $isEdit ? '/bookmakers/' . (int)$bm['id'] . '/edit' : '/bookmakers/add
                     <dd class="num"><?php echo (int)($stats['won_bets'] ?? 0); ?> / <?php echo (int)($stats['lost_bets'] ?? 0); ?></dd>
                     <dt>Staked</dt>
                     <dd class="num"><?php echo formatCurrency($stats['total_staked'] ?? 0); ?></dd>
+                    <dt>Tax paid</dt>
+                    <dd class="num"><?php echo formatCurrency($stats['tax_paid'] ?? 0); ?></dd>
                     <dt>Profit</dt>
                     <dd class="num <?php echo toneClass($pl); ?>" style="font-weight:620"><?php echo formatSigned($pl); ?></dd>
                 </dl>
