@@ -39,8 +39,8 @@
                     </tr>
                     <tr>
                         <td><strong>Profit/Loss:</strong></td>
-                        <td class="<?php echo ($bm['stats']['profit'] >= 0) ? 'success' : 'danger'; ?>">
-                            <?php echo formatCurrency($bm['stats']['profit'] ?? 0, getCurrentUser()['currency']); ?>
+                        <td class="<?php echo (($bm['stats']['profit_loss'] ?? 0) >= 0) ? 'success' : 'danger'; ?>">
+                            <?php echo formatCurrency($bm['stats']['profit_loss'] ?? 0, getCurrentUser()['currency']); ?>
                         </td>
                     </tr>
                 </table>

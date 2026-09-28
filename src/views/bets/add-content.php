@@ -64,6 +64,15 @@
                 </select>
             </div>
         </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="checkbox-label" for="each_way">
+                    <input type="checkbox" id="each_way" name="each_way" value="1">
+                    Each-way bet
+                </label>
+            </div>
+        </div>
         
         <div class="form-row">
             <div class="form-group full">
@@ -184,48 +193,45 @@ document.addEventListener('DOMContentLoaded', function() {
     stakeInput.addEventListener('change', updatePotentialReturn);
     
     // Load competitions when sport changes
-    // Mapping of common competitions per sport name (case-insensitive keys)
-    const competitionMap = {
-        'football': ['Premier League', 'Champions League', 'Europa League', 'FA Cup', 'EFL Cup'],
-        'soccer': ['Premier League', 'Champions League', 'Europa League', 'FA Cup', 'EFL Cup'],
-        'tennis': ['Wimbledon', 'US Open', 'French Open', 'Australian Open', 'ATP Tour'],
-        'horse racing': ['Cheltenham', 'Aintree', 'Royal Ascot', 'Grand National'],
-        'cricket': ['IPL', 'The Ashes', 'County Championship', 'T20 Blast'],
-        'basketball': ['NBA', 'EuroLeague', 'EuroCup'],
-        'boxing': ['World Title', 'Regional Title'],
-        'mma': ['UFC', 'Bellator']
-    };
-
-    function populateCompetitionsForSport(sportName) {
+    function resetCompetitions() {
         const defaultOption = '<option value="">Select Competition</option>';
-        if (!sportName) {
-            competitionSelect.innerHTML = defaultOption;
+        competitionSelect.innerHTML = defaultOption;
+    }
+
+    function loadCompetitionsForSport(sportId) {
+        resetCompetitions();
+        if (!sportId || !/^\d+$/.test(String(sportId))) {
             return;
         }
 
-        const key = sportName.trim().toLowerCase();
-        let items = competitionMap[key] || [];
-        // Always include 'Other' as last option
-        const options = [defaultOption].concat(items.map(c => `<option value="${c}">${c}</option>`)).concat(['<option value="other">Other</option>']);
-        competitionSelect.innerHTML = options.join('\n');
+        fetch(`/api/competitions?sport_id=${encodeURIComponent(sportId)}`)
+            .then(response => response.json())
+            .then(result => {
+                if (!result.success || !Array.isArray(result.competitions)) {
+                    return;
+                }
+                competitionSelect.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select Competition';
+                competitionSelect.appendChild(defaultOption);
+                result.competitions.forEach(competition => {
+                    const option = document.createElement('option');
+                    option.value = String(competition.id);
+                    option.textContent = competition.name;
+                    competitionSelect.appendChild(option);
+                });
+            })
+            .catch(() => {
+                resetCompetitions();
+            });
     }
 
     sportSelect.addEventListener('change', function() {
-        const sportText = this.options[this.selectedIndex] ? this.options[this.selectedIndex].text : '';
-        if (this.value === 'other') {
-            // For 'Other' sport, just provide an 'Other' competition option
-            competitionSelect.innerHTML = '<option value="">Select Competition</option><option value="other">Other</option>';
-            return;
-        }
-        populateCompetitionsForSport(sportText);
+        loadCompetitionsForSport(this.value);
     });
 
-    // Initialize competitions on load if a sport is pre-selected
-    (function initCompetitions() {
-        const selectedIndex = sportSelect.selectedIndex;
-        const sportText = selectedIndex > -1 ? (sportSelect.options[selectedIndex].text || '') : '';
-        populateCompetitionsForSport(sportText);
-    })();
+    loadCompetitionsForSport(sportSelect.value);
 
     // Bookmaker tax auto-fill
     const bookmakerId = document.getElementById('bookmaker_id');

@@ -20,7 +20,7 @@ class TipsterController {
             $tipster['stats'] = $stats;
             
             if ($stats && $stats['total_bets'] > 0) {
-                $tipster['roi'] = calculateROI($stats['profit_loss'] ?? $stats['profit'], $stats['total_staked']);
+                $tipster['roi'] = calculateROI($stats['profit_loss'], $stats['total_staked']);
                 $tipster['win_rate'] = round(($stats['won_bets'] / $stats['total_bets']) * 100, 2);
             } else {
                 $tipster['roi'] = 0;
@@ -171,5 +171,4 @@ class TipsterController {
         redirect('/tipsters');
     }
 }
-
 

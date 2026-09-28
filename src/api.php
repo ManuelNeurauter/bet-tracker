@@ -65,8 +65,14 @@ elseif (($segments[1] ?? '') === 'bankroll') {
 elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settle') {
     // Quick settle a bet
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        requireLogin();
         $input = json_decode(file_get_contents('php://input'), true);
+        $csrfToken = $input['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+        if (!verifyCSRFToken($csrfToken)) {
+            $response = ['success' => false, 'message' => 'Invalid security token'];
+            echo json_encode($response);
+            exit;
+        }
+
         $betId = $input['betId'] ?? null;
         $status = $input['status'] ?? null;
         $actualReturn = $input['actualReturn'] ?? null;

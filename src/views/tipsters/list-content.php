@@ -23,8 +23,8 @@
                 <td><?php echo $tipster['stats']['won_bets'] ?? 0; ?></td>
                 <td><?php echo $tipster['stats']['lost_bets'] ?? 0; ?></td>
                 <td><?php echo $tipster['win_rate']; ?>%</td>
-                <td class="<?php echo ($tipster['stats']['profit'] >= 0) ? 'success' : 'danger'; ?>">
-                    <?php echo formatCurrency($tipster['stats']['profit'] ?? 0, getCurrentUser()['currency']); ?>
+                <td class="<?php echo (($tipster['stats']['profit_loss'] ?? 0) >= 0) ? 'success' : 'danger'; ?>">
+                    <?php echo formatCurrency($tipster['stats']['profit_loss'] ?? 0, getCurrentUser()['currency']); ?>
                 </td>
                 <td><?php echo $tipster['roi']; ?>%</td>
                 <td><?php echo $tipster['is_active'] ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-secondary">Inactive</span>'; ?></td>

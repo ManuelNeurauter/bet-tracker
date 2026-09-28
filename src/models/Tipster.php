@@ -116,7 +116,6 @@ class Tipster {
                 SUM(CASE WHEN b.status = ? THEN 1 ELSE 0 END) as cashout_bets,
                 SUM(b.stake) as total_staked,
                 SUM(CASE WHEN b.actual_return IS NOT NULL THEN b.actual_return ELSE 0 END) as total_returned,
-                SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit,
                 SUM(CASE WHEN b.actual_return IS NOT NULL THEN (b.actual_return - b.stake) ELSE 0 END) as profit_loss
             FROM bets b
             JOIN bet_tipsters bt ON b.id = bt.bet_id
@@ -137,5 +136,4 @@ class Tipster {
         return $stmt->fetch();
     }
 }
-
 

@@ -76,38 +76,41 @@
                 <input type="number" id="stake" name="stake" step="0.01" min="0" value="<?php echo number_format($bet['stake'], 2); ?>" required>
             </div>
         </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="checkbox-label" for="each_way">
+                    <input type="checkbox" id="each_way" name="each_way" value="1" <?php echo !empty($bet['each_way']) ? 'checked' : ''; ?>>
+                    Each-way bet
+                </label>
+            </div>
+        </div>
         
         <div class="form-row">
             <div class="form-group">
                 <label for="status">Status *</label>
                 <select id="status" name="status" required>
-                    <?php if ($bet['status'] === 'pending'): ?>
-                    <option value="pending" selected>Pending</option>
-                    <?php endif; ?>
+                    <option value="pending" <?php echo ($bet['status'] === 'pending') ? 'selected' : ''; ?>>Pending</option>
                     <option value="won" <?php echo ($bet['status'] === 'won') ? 'selected' : ''; ?>>Won</option>
                     <option value="lost" <?php echo ($bet['status'] === 'lost') ? 'selected' : ''; ?>>Lost</option>
                     <option value="cashout" <?php echo ($bet['status'] === 'cashout') ? 'selected' : ''; ?>>Cashed Out</option>
                 </select>
             </div>
             
-            <?php if ($bet['status'] !== 'pending'): ?>
-            <div class="form-group">
+            <div class="form-group settlement-field">
                 <label for="actual_return">Actual Return</label>
                 <input type="number" id="actual_return" name="actual_return" step="0.01" value="<?php echo $bet['actual_return'] ? number_format($bet['actual_return'], 2) : ''; ?>">
             </div>
             
-            <?php if ($bet['status'] === 'cashout'): ?>
-            <div class="form-group">
+            <div class="form-group settlement-field" id="cashout_amount_group">
                 <label for="cashout_amount">Cashout Amount</label>
                 <input type="number" id="cashout_amount" name="cashout_amount" step="0.01" value="<?php echo $bet['cashout_amount'] ? number_format($bet['cashout_amount'], 2) : ''; ?>">
             </div>
-            <?php endif; ?>
             
-            <div class="form-group">
+            <div class="form-group settlement-field">
                 <label for="tax_amount">Tax Amount</label>
                 <input type="number" id="tax_amount" name="tax_amount" step="0.01" value="<?php echo $bet['tax_amount'] ? number_format($bet['tax_amount'], 2) : 0; ?>">
             </div>
-            <?php endif; ?>
         </div>
         
         <div class="form-row">
@@ -132,8 +135,11 @@
 document.addEventListener('DOMContentLoaded', function() {
     const oddsInput = document.getElementById('odds');
     const stakeInput = document.getElementById('stake');
+    const statusInput = document.getElementById('status');
     const bookmakerId = document.getElementById('bookmaker_id');
     const taxAmountInput = document.getElementById('tax_amount');
+    const cashoutAmountGroup = document.getElementById('cashout_amount_group');
+    const settlementFields = document.querySelectorAll('.settlement-field');
     
     const bookmakerData = <?php echo json_encode(array_reduce($bookmakers, function($carry, $item) {
         $carry[$item['id']] = ['name' => $item['name'], 'tax_percentage' => $item['tax_percentage'] ?? 0];
@@ -141,6 +147,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }, [])); ?>;
 
     function updateTaxAmount() {
+        if (!taxAmountInput) {
+            return;
+        }
         const selected = bookmakerId.value;
         if (selected && bookmakerData && bookmakerData[selected]) {
             const taxPercentage = parseFloat(bookmakerData[selected].tax_percentage) || 0;
@@ -155,8 +164,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function toggleSettlementFields() {
+        const isPending = statusInput.value === 'pending';
+        const isCashout = statusInput.value === 'cashout';
+        settlementFields.forEach(field => {
+            field.style.display = isPending ? 'none' : '';
+        });
+        if (cashoutAmountGroup) {
+            cashoutAmountGroup.style.display = (!isPending && isCashout) ? '' : 'none';
+        }
+    }
+
     bookmakerId.addEventListener('change', updateTaxAmount);
     stakeInput.addEventListener('change', updateTaxAmount);
     oddsInput.addEventListener('change', updateTaxAmount);
+    statusInput.addEventListener('change', toggleSettlementFields);
+
+    updateTaxAmount();
+    toggleSettlementFields();
 });
 </script>
