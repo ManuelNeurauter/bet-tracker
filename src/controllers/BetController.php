@@ -16,6 +16,12 @@ class BetController {
 
         // Archived bookmakers are hidden, except the one an existing bet already uses
         $bookmakers = $bookmakerModel->getByUser($userId);
+        // The Shared bets bookkeeper only holds partner copies, which the owner's bet drives
+        $sharedBetModel = new SharedBet();
+        $bookkeeperId = $sharedBetModel->bookkeeperId($userId);
+        $bookmakers = array_values(array_filter($bookmakers, function ($bm) use ($bookkeeperId, $keepBookmakerId) {
+            return (int)$bm['id'] !== $bookkeeperId || (int)$bm['id'] === (int)$keepBookmakerId;
+        }));
         if ($keepBookmakerId && !in_array((int)$keepBookmakerId, array_map('intval', array_column($bookmakers, 'id')), true)) {
             $kept = $bookmakerModel->getById($keepBookmakerId, $userId);
             if ($kept) {
@@ -119,6 +125,16 @@ class BetController {
             $bookmakerModel->update($bookmakerId, $userId, [
                 'account_balance' => round((float)$bookmaker['account_balance'] + $delta, 2),
             ]);
+        }
+    }
+
+    /**
+     * A partner's copy of a shared bet follows the owner's bet; only the owner can change it
+     */
+    private static function guardPartnerCopy($bet) {
+        if (!empty($bet['shared_from'])) {
+            setFlash('error', 'This bet is shared by ' . e($bet['shared_from']) . '. Only they can edit, settle or delete it.');
+            redirect('/bets/' . (int)$bet['id']);
         }
     }
 
@@ -245,6 +261,14 @@ class BetController {
         $tags = $tagModel->getByBet($betId);
         $tipsters = $tipsterModel->getByBet($betId);
 
+        $sharedBetModel = new SharedBet();
+        $partnerShare = !empty($bet['shared_from']) ? $sharedBetModel->findByPartnerBet($betId) : null;
+        $shares = $sharedBetModel->getByBet($partnerShare ? $partnerShare['bet_id'] : $betId);
+        // The whole slip, which a partner's copy only holds part of
+        $slip = $partnerShare ? $betModel->getById($partnerShare['bet_id'], $partnerShare['owner_id']) : $bet;
+        $oldShare = $_SESSION['old_share'] ?? null;
+        unset($_SESSION['old_share']);
+
         include __DIR__ . '/../views/bets/view.php';
     }
 
@@ -261,6 +285,8 @@ class BetController {
         if (!$bet) {
             notFound('That bet does not exist or was deleted.');
         }
+
+        self::guardPartnerCopy($bet);
 
         extract(self::formData($userId, $bet['bookmaker_id']));
         $tagModel = new Tag();
@@ -293,7 +319,14 @@ class BetController {
             notFound('That bet does not exist or was deleted.');
         }
 
+        self::guardPartnerCopy($currentBet);
+
         [$data, $errors] = self::readForm($userId, $currentBet['status']);
+        $sharedBetModel = new SharedBet();
+        $partnerStake = $sharedBetModel->partnerStake($betId);
+        if ($partnerStake > 0 && $data['stake'] <= $partnerStake) {
+            $errors[] = 'The people you share this bet with put in ' . formatCurrency($partnerStake) . '. The stake has to be more than that.';
+        }
         if ($errors) {
             $_SESSION['old_bet'] = $_POST;
             setFlash('error', implode('<br>', array_map('e', $errors)));
@@ -347,6 +380,7 @@ class BetController {
         }
 
         self::syncLinks($betId, $userId);
+        $sharedBetModel->syncFromOwner($betId, $userId);
 
         setFlash('success', 'Bet updated.');
         redirect('/bets/' . $betId);
@@ -464,6 +498,8 @@ class BetController {
         if (!$currentBet) {
             notFound('That bet does not exist or was deleted.');
         }
+        self::guardPartnerCopy($currentBet);
+
         $impact = calculateSettlementImpact(
             $currentBet['status'],
             (float)$currentBet['stake'],
@@ -473,7 +509,13 @@ class BetController {
             (float)($currentBet['tax_amount'] ?? 0)
         );
 
+        $sharedBetModel = new SharedBet();
+        $sharedUsers = $sharedBetModel->beforeOwnerDelete($currentBet);
+
         if ($betModel->delete($betId, $userId)) {
+            foreach ($sharedUsers as $sharedUserId) {
+                syncBankrollSnapshot($sharedUserId);
+            }
             self::adjustBookmaker($currentBet['bookmaker_id'] ?? null, $userId, -$impact);
             if ($impact != 0) {
                 syncBankrollSnapshot($userId);

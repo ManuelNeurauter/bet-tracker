@@ -30,6 +30,8 @@ class BookmakerController {
         }
         
         unset($bookmaker);
+        $sharedBetModel = new SharedBet();
+        $bookkeeperId = $sharedBetModel->bookkeeperId($userId);
         $activeBookmakers = array_values(array_filter($bookmakers, function ($bm) { return !$bm['is_archived']; }));
         $archivedBookmakers = array_values(array_filter($bookmakers, function ($bm) { return $bm['is_archived']; }));
         $totalBalance = array_sum(array_map(function ($bm) { return (float)$bm['account_balance']; }, $activeBookmakers));
@@ -191,6 +193,12 @@ class BookmakerController {
         
         if (!$bookmakerModel->getById($bookmakerId, $userId)) {
             notFound('That bookmaker does not exist or was deleted.');
+        }
+
+        $sharedBetModel = new SharedBet();
+        if ($sharedBetModel->bookkeeperId($userId) === (int)$bookmakerId) {
+            setFlash('error', 'Shared bets is kept for bets you share with others, so it cannot be deleted. You can archive it instead.');
+            redirect('/bookmakers');
         }
         
         if ($bookmakerModel->delete($bookmakerId, $userId)) {
