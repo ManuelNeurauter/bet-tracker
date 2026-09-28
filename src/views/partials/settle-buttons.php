@@ -1,0 +1,4 @@
+<?php /* Quick settle buttons for a pending $bet. Set $settleSize = 'sm' for compact rows. */ ?>
+<button type="button" class="btn btn-win btn-sm" data-settle="won" data-bet-id="<?php echo (int)$bet['id']; ?>" title="Mark as won"><?php echo icon('check', 'icon-sm'); ?><span>Won</span></button>
+<button type="button" class="btn btn-loss btn-sm" data-settle="lost" data-bet-id="<?php echo (int)$bet['id']; ?>" title="Mark as lost"><?php echo icon('x', 'icon-sm'); ?><span>Lost</span></button>
+<button type="button" class="btn btn-cashout btn-sm" data-settle="cashout" data-bet-id="<?php echo (int)$bet['id']; ?>" data-event="<?php echo e(plainText($bet['event_name'])); ?>" data-stake="<?php echo e($bet['stake']); ?>" title="Cash out"><?php echo icon('hand-coins', 'icon-sm'); ?><span>Cash out</span></button>

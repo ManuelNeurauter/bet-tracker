@@ -122,7 +122,7 @@ Get BetLedger up and running in 5 minutes!
 
 ### Export Bet History to CSV
 1. Go to Bets page
-2. Click "Export to CSV" button (coming soon)
+2. Filter the list if you only want some bets, then click "Export CSV"
 
 ### Change Currency/Timezone
 1. Go to Settings

@@ -73,12 +73,16 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
             exit;
         }
 
-        $betId = $input['betId'] ?? null;
+        $betId = (int)($input['betId'] ?? 0);
         $status = $input['status'] ?? null;
-        $actualReturn = $input['actualReturn'] ?? null;
+        $amount = isset($input['cashoutAmount']) && is_numeric($input['cashoutAmount'])
+            ? round((float)$input['cashoutAmount'], 2)
+            : (isset($input['actualReturn']) && is_numeric($input['actualReturn']) ? round((float)$input['actualReturn'], 2) : null);
         
-        if (!$betId || !$status) {
+        if (!$betId || !in_array((string)$status, [BET_STATUS_WON, BET_STATUS_LOST, BET_STATUS_CASHOUT], true)) {
             $response = ['success' => false, 'message' => 'Missing required fields'];
+        } elseif ($status === BET_STATUS_CASHOUT && ($amount === null || $amount < 0)) {
+            $response = ['success' => false, 'message' => 'Enter the cashout amount you received'];
         } else {
             $userId = getCurrentUserId();
             $betModel = new Bet();
@@ -87,28 +91,30 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
             $bet = $betModel->getById($betId, $userId);
             if (!$bet) {
                 $response = ['success' => false, 'message' => 'Bet not found'];
+            } elseif (!empty($bet['shared_from'])) {
+                $response = ['success' => false, 'message' => 'Only ' . $bet['shared_from'] . ' can settle this shared bet'];
             } else {
+                $cashoutAmount = $status === BET_STATUS_CASHOUT ? $amount : null;
                 $actualReturn = calculateSettlementReturn(
                     $status,
                     (float)$bet['stake'],
                     (float)$bet['odds'],
-                    $input['cashoutAmount'] ?? null,
-                    $actualReturn,
+                    $cashoutAmount,
+                    $cashoutAmount,
                     (float)($bet['tax_amount'] ?? 0)
                 );
 
                 $updateData = [
                     'status' => $status,
                     'actual_return' => $actualReturn,
-                    'settled_at' => date('Y-m-d H:i:s')
+                    'cashout_amount' => $cashoutAmount,
+                    'settled_at' => $status === BET_STATUS_PENDING ? null : date('Y-m-d H:i:s'),
                 ];
                 
-                // For cashout, use the actual return as cashout amount
-                if ($status === 'cashout' && $actualReturn !== null) {
-                    $updateData['cashout_amount'] = $actualReturn;
-                }
-                
                 if ($betModel->update($betId, $userId, $updateData)) {
+                    if ($status === BET_STATUS_WON && isChainedBetType($bet['bet_type'])) {
+                        (new BetLeg())->settleOpenAsWon($betId);
+                    }
                     $oldImpact = calculateSettlementImpact(
                         $bet['status'],
                         (float)$bet['stake'],
@@ -121,7 +127,7 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                         $status,
                         (float)$bet['stake'],
                         (float)$bet['odds'],
-                        $input['cashoutAmount'] ?? null,
+                        $cashoutAmount,
                         $actualReturn,
                         (float)($bet['tax_amount'] ?? 0)
                     );
@@ -132,17 +138,44 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                         $bookmaker = $bookmakerModel->getById($bookmakerId, $userId);
                         if ($bookmaker) {
                             $bookmakerModel->update($bookmakerId, $userId, [
-                                'account_balance' => (float)$bookmaker['account_balance'] - $oldImpact + $newImpact,
+                                'account_balance' => round((float)$bookmaker['account_balance'] - $oldImpact + $newImpact, 2),
                             ]);
                             syncBankrollSnapshot($userId);
                         }
                     }
-                    
+
+                    $sharedBetModel = new SharedBet();
+                    $sharedBetModel->syncFromOwner($betId, $userId);
+
+                    $labels = betStatuses();
+                    setFlash('success', e(plainText($bet['event_name'])) . ' marked as ' . strtolower($labels[$status]) . '.');
                     $response = ['success' => true, 'message' => 'Bet updated successfully'];
                 } else {
                     $response = ['success' => false, 'message' => 'Failed to update bet'];
                 }
             }
+        }
+    }
+}
+elseif (($segments[1] ?? '') === 'bets' && ctype_digit($segments[2] ?? '') && ($segments[3] ?? '') === 'legs' && ctype_digit($segments[4] ?? '')) {
+    // Set the result of one leg of a multiple
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $input = json_decode(file_get_contents('php://input'), true) ?: [];
+        $csrfToken = $input['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+        $status = $input['status'] ?? null;
+        $betModel = new Bet();
+        if (!verifyCSRFToken($csrfToken)) {
+            $response = ['success' => false, 'message' => 'Invalid security token'];
+        } elseif (!array_key_exists((string)$status, legStatuses())) {
+            $response = ['success' => false, 'message' => 'Pick a valid result'];
+        } elseif (!($legBet = $betModel->getById((int)$segments[2], getCurrentUserId()))) {
+            $response = ['success' => false, 'message' => 'Bet not found'];
+        } elseif (!empty($legBet['shared_from'])) {
+            $response = ['success' => false, 'message' => 'Only ' . $legBet['shared_from'] . ' can settle this shared bet'];
+        } elseif ((new BetLeg())->updateStatus((int)$segments[4], (int)$segments[2], $status)) {
+            $response = ['success' => true];
+        } else {
+            $response = ['success' => false, 'message' => 'Selection not found'];
         }
     }
 }

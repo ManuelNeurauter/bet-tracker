@@ -71,11 +71,13 @@ function calculatePotentialReturn(odds, stake) {
 ## Database Changes
 
 If modifying the schema:
-1. Create a migration file with version number
-2. Include both UP and DOWN migrations
-3. Update the schema.sql file
+1. Create a migration with `php database/migrate.php make short_description`
+2. Put the change in it (migrations only go forward; undo with a new migration)
+3. Make the same change in schema.sql and add the version to its `schema_migrations` INSERT
 4. Document changes in comments
-5. Test on fresh database
+5. Test on a fresh database and on an existing one
+
+See [database/MIGRATIONS.md](database/MIGRATIONS.md) for the details.
 
 ## Commit Messages
 

@@ -208,6 +208,56 @@ CREATE TABLE bankroll_adjustments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
+-- BET_SHARES / SHARED_BET_BOOKS TABLES (shared bets)
+-- ============================================
+-- One row per person a bet is shared with. The owner's bet is the real slip at
+-- their bookmaker; each partner puts in part of its stake and gets the same
+-- part of its return.
+CREATE TABLE bet_shares (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    bet_id INT NOT NULL,                              -- the owner's bet
+    owner_id INT NOT NULL,
+    user_id INT NULL,                                 -- the partner, once the email matches an account
+    invited_email VARCHAR(120) NOT NULL,
+    stake DECIMAL(12, 2) NOT NULL,                    -- the partner's part of the stake
+    status VARCHAR(20) NOT NULL DEFAULT 'invited',    -- invited, accepted, declined
+    partner_bet_id INT NULL,                          -- the partner's copy of the bet once accepted
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    responded_at TIMESTAMP NULL,
+    FOREIGN KEY (bet_id) REFERENCES bets(id) ON DELETE CASCADE,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (partner_bet_id) REFERENCES bets(id) ON DELETE SET NULL,
+    UNIQUE KEY unique_bet_email (bet_id, invited_email),
+    INDEX idx_user_id (user_id),
+    INDEX idx_invited_email (invited_email),
+    INDEX idx_partner_bet_id (partner_bet_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Each user's "Shared bets" bookkeeper: a bookmaker entry created on demand that
+-- carries what partners owe you or you owe them when shared bets settle.
+CREATE TABLE shared_bet_books (
+    user_id INT PRIMARY KEY,
+    bookmaker_id INT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (bookmaker_id) REFERENCES bookmakers(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- SCHEMA_MIGRATIONS TABLE
+-- Versions from database/migrations/ that this file already includes.
+-- When you add a migration, make the same change above and list its version here.
+-- ============================================
+CREATE TABLE schema_migrations (
+    version VARCHAR(255) PRIMARY KEY,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO schema_migrations (version) VALUES
+('0001_add_tax_columns'),
+('0002_shared_bets');
+
+-- ============================================
 -- CREATE SAMPLE SPORTS DATA
 -- ============================================
 INSERT INTO sports (name, icon_slug) VALUES
