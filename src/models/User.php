@@ -155,6 +155,15 @@ class User {
     }
 
     /**
+     * Number of pending bets
+     */
+    public function countPendingBets($userId) {
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM bets WHERE user_id = ? AND status = 'pending'");
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /**
      * Record a daily bankroll snapshot
      */
     public function recordBankrollSnapshot($userId, $balance = null, $snapshotDate = null) {

@@ -13,7 +13,7 @@ class BookmakerController {
         
         $userId = getCurrentUserId();
         $bookmakerModel = new Bookmaker();
-        $bookmakers = $bookmakerModel->getByUser($userId);
+        $bookmakers = $bookmakerModel->getByUser($userId, true);
         
         // Get statistics for each bookmaker
         foreach ($bookmakers as &$bookmaker) {
@@ -21,17 +21,40 @@ class BookmakerController {
             $bookmaker['stats'] = $stats;
             
             if ($stats['total_bets'] > 0) {
-                $bookmaker['roi'] = calculateROI($stats['profit_loss'], $stats['total_staked']);
-                $bookmaker['win_rate'] = round(($stats['won_bets'] / $stats['total_bets']) * 100, 2);
+                $bookmaker['roi'] = $stats['total_staked'] > 0 ? round($stats['profit_loss'] / $stats['total_staked'] * 100, 1) : 0;
+                $bookmaker['win_rate'] = round(($stats['won_bets'] / $stats['total_bets']) * 100, 1);
             } else {
                 $bookmaker['roi'] = 0;
                 $bookmaker['win_rate'] = 0;
             }
         }
         
+        unset($bookmaker);
+        $sharedBetModel = new SharedBet();
+        $bookkeeperId = $sharedBetModel->bookkeeperId($userId);
+        $activeBookmakers = array_values(array_filter($bookmakers, function ($bm) { return !$bm['is_archived']; }));
+        $archivedBookmakers = array_values(array_filter($bookmakers, function ($bm) { return $bm['is_archived']; }));
+        $totalBalance = array_sum(array_map(function ($bm) { return (float)$bm['account_balance']; }, $activeBookmakers));
+        $totalBonus = array_sum(array_map(function ($bm) { return (float)$bm['bonus_balance']; }, $activeBookmakers));
+        $totalProfit = array_sum(array_map(function ($bm) { return (float)($bm['stats']['profit_loss'] ?? 0); }, $bookmakers));
+        $totalTax = array_sum(array_map(function ($bm) { return (float)($bm['stats']['tax_paid'] ?? 0); }, $bookmakers));
+        
         include __DIR__ . '/../views/bookmakers/list.php';
     }
     
+    /**
+     * Keep only http(s) links; add a scheme when it is missing
+     */
+    private static function normaliseUrl($url) {
+        if ($url === '') {
+            return '';
+        }
+        if (!preg_match('#^https?://#i', $url)) {
+            $url = 'https://' . preg_replace('#^[a-z]+:/*#i', '', $url);
+        }
+        return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
+    }
+
     /**
      * Show add bookmaker page
      */
@@ -59,12 +82,12 @@ class BookmakerController {
         $userId = getCurrentUserId();
         
         $data = [
-            'name' => sanitize($_POST['name'] ?? ''),
-            'url' => sanitize($_POST['url'] ?? ''),
+            'name' => postString('name', ''),
+            'url' => self::normaliseUrl(postString('url', '')),
             'account_balance' => (float)($_POST['account_balance'] ?? 0),
             'bonus_balance' => (float)($_POST['bonus_balance'] ?? 0),
             'tax_percentage' => min(100, max(0, (float)($_POST['tax_percentage'] ?? 0))),
-            'notes' => sanitize($_POST['notes'] ?? ''),
+            'notes' => postString('notes', ''),
         ];
         
         if (empty($data['name'])) {
@@ -94,10 +117,10 @@ class BookmakerController {
         $bookmaker = $bookmakerModel->getById($bookmakerId, $userId);
         
         if (!$bookmaker) {
-            http_response_code(404);
-            die('Bookmaker not found');
+            notFound('That bookmaker does not exist or was deleted.');
         }
         
+        $stats = $bookmakerModel->getStatistics($bookmakerId, $userId);
         include __DIR__ . '/../views/bookmakers/edit.php';
     }
     
@@ -121,17 +144,17 @@ class BookmakerController {
         $bookmakerModel = new Bookmaker();
         
         if (!$bookmakerModel->getById($bookmakerId, $userId)) {
-            http_response_code(404);
-            die('Bookmaker not found');
+            notFound('That bookmaker does not exist or was deleted.');
         }
         
         $data = [
-            'name' => sanitize($_POST['name'] ?? ''),
-            'url' => sanitize($_POST['url'] ?? ''),
+            'name' => postString('name', ''),
+            'url' => self::normaliseUrl(postString('url', '')),
             'account_balance' => (float)($_POST['account_balance'] ?? 0),
             'bonus_balance' => (float)($_POST['bonus_balance'] ?? 0),
             'tax_percentage' => min(100, max(0, (float)($_POST['tax_percentage'] ?? 0))),
-            'notes' => sanitize($_POST['notes'] ?? ''),
+            'notes' => postString('notes', ''),
+            'is_archived' => isset($_POST['is_archived']) ? 1 : 0,
         ];
         
         if (empty($data['name'])) {
@@ -169,8 +192,13 @@ class BookmakerController {
         $bookmakerModel = new Bookmaker();
         
         if (!$bookmakerModel->getById($bookmakerId, $userId)) {
-            http_response_code(404);
-            die('Bookmaker not found');
+            notFound('That bookmaker does not exist or was deleted.');
+        }
+
+        $sharedBetModel = new SharedBet();
+        if ($sharedBetModel->bookkeeperId($userId) === (int)$bookmakerId) {
+            setFlash('error', 'Shared bets is kept for bets you share with others, so it cannot be deleted. You can archive it instead.');
+            redirect('/bookmakers');
         }
         
         if ($bookmakerModel->delete($bookmakerId, $userId)) {

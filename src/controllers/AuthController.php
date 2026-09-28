@@ -30,8 +30,9 @@ class AuthController {
             redirect('/login');
         }
         
-        $email = sanitize($_POST['email'] ?? '');
+        $email = postString('email', '');
         $password = $_POST['password'] ?? '';
+        $_SESSION['old_login'] = $email;
         
         if (empty($email) || empty($password)) {
             setFlash('error', 'Email and password are required.');
@@ -39,17 +40,15 @@ class AuthController {
         }
         
         $user = new User();
-        $userData = $user->findByEmail($email);
+        $userData = $user->findByEmail($email) ?: $user->findByUsername($email);
         
         if (!$userData || !verifyPassword($password, $userData['password_hash'])) {
-            setFlash('error', 'Invalid email or password.');
+            setFlash('error', 'That email and password combination is not right.');
             redirect('/login');
         }
         
-        $_SESSION['user_id'] = $userData['id'];
-        $_SESSION['username'] = $userData['username'];
-        
-        setFlash('success', 'Welcome back, ' . $userData['username'] . '!');
+        self::logIn($userData);
+        setFlash('success', 'Welcome back, ' . e($userData['username']) . '!');
         redirect('/');
     }
     
@@ -78,12 +77,19 @@ class AuthController {
             redirect('/register');
         }
         
-        $username = sanitize($_POST['username'] ?? '');
-        $email = sanitize($_POST['email'] ?? '');
+        $username = postString('username', '');
+        $email = postString('email', '');
         $password = $_POST['password'] ?? '';
         $passwordConfirm = $_POST['password_confirm'] ?? '';
-        $currency = sanitize($_POST['currency'] ?? 'USD');
-        $timezone = sanitize($_POST['timezone'] ?? 'UTC');
+        $currency = postString('currency', 'USD');
+        $timezone = postString('timezone', 'UTC');
+        $_SESSION['old_register'] = ['username' => $username, 'email' => $email, 'currency' => $currency, 'timezone' => $timezone];
+        if (!isset(CURRENCY_SYMBOLS[$currency])) {
+            $currency = DEFAULT_CURRENCY;
+        }
+        if (!in_array($timezone, DateTimeZone::listIdentifiers(), true)) {
+            $timezone = 'UTC';
+        }
         
         // Validation
         $errors = [];
@@ -115,14 +121,16 @@ class AuthController {
         }
         
         if (!empty($errors)) {
-            setFlash('error', implode('<br>', $errors));
+            setFlash('error', implode('<br>', array_map('e', $errors)));
             redirect('/register');
         }
         
-        // Create user
+        // Create user and sign them in
         if ($user->create($username, $email, $password, $currency, $timezone)) {
-            setFlash('success', 'Account created successfully! You can now log in.');
-            redirect('/login');
+            unset($_SESSION['old_register']);
+            self::logIn($user->findByEmail($email));
+            setFlash('success', 'Welcome to ' . APP_NAME . ', ' . e($username) . '! Add a bookmaker to start tracking.');
+            redirect('/');
         } else {
             setFlash('error', 'An error occurred during registration. Please try again.');
             redirect('/register');
@@ -130,11 +138,26 @@ class AuthController {
     }
     
     /**
+     * Start an authenticated session
+     */
+    private static function logIn(array $userData) {
+        session_regenerate_id(true);
+        unset($_SESSION['old_login']);
+        $_SESSION['user_id'] = $userData['id'];
+        $_SESSION['username'] = $userData['username'];
+    }
+
+    /**
      * Handle logout
      */
     public static function handleLogout() {
-        session_destroy();
-        redirect('/');
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+            redirect('/');
+        }
+        $_SESSION = [];
+        session_regenerate_id(true);
+        setFlash('success', 'You have been signed out.');
+        redirect('/login');
     }
 }
 

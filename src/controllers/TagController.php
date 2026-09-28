@@ -14,6 +14,7 @@ class TagController {
         $userId = getCurrentUserId();
         $tagModel = new Tag();
         $tags = $tagModel->getByUser($userId);
+        $tagStats = $tagModel->getStatistics($userId);
         
         include __DIR__ . '/../views/tags/list.php';
     }
@@ -23,6 +24,8 @@ class TagController {
      */
     public static function showAdd() {
         requireLogin();
+        $old = $_SESSION['old_tag'] ?? null;
+        unset($_SESSION['old_tag']);
         include __DIR__ . '/../views/tags/add.php';
     }
     
@@ -43,15 +46,25 @@ class TagController {
         }
         
         $userId = getCurrentUserId();
-        $name = sanitize($_POST['name'] ?? '');
-        $color = sanitize($_POST['color'] ?? '#3498db');
+        $name = postString('name', '');
+        $color = postString('color', '#3498db');
+        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
+            $color = '#3498db';
+        }
         
         if (empty($name)) {
+            $_SESSION['old_tag'] = ['name' => $name, 'color' => $color];
             setFlash('error', 'Tag name is required.');
             redirect('/tags/add');
         }
         
         $tagModel = new Tag();
+        if ($tagModel->nameExists($userId, $name)) {
+            $_SESSION['old_tag'] = ['name' => $name, 'color' => $color];
+            setFlash('error', 'You already have a tag with that name.');
+            redirect('/tags/add');
+        }
+
         if ($tagModel->create($userId, $name, $color)) {
             setFlash('success', 'Tag created successfully!');
             redirect('/tags');
@@ -72,10 +85,12 @@ class TagController {
         $tag = $tagModel->getById($tagId, $userId);
         
         if (!$tag) {
-            http_response_code(404);
-            die('Tag not found');
+            notFound('That tag does not exist or was deleted.');
         }
         
+        $stats = $tagModel->getStatistics($userId)[$tag['id']] ?? null;
+        $old = $_SESSION['old_tag'] ?? null;
+        unset($_SESSION['old_tag']);
         include __DIR__ . '/../views/tags/edit.php';
     }
     
@@ -99,18 +114,27 @@ class TagController {
         $tagModel = new Tag();
         
         if (!$tagModel->getById($tagId, $userId)) {
-            http_response_code(404);
-            die('Tag not found');
+            notFound('That tag does not exist or was deleted.');
         }
         
-        $name = sanitize($_POST['name'] ?? '');
-        $color = sanitize($_POST['color'] ?? '#3498db');
+        $name = postString('name', '');
+        $color = postString('color', '#3498db');
+        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
+            $color = '#3498db';
+        }
         
         if (empty($name)) {
+            $_SESSION['old_tag'] = ['name' => $name, 'color' => $color];
             setFlash('error', 'Tag name is required.');
             redirect('/tags/' . $tagId . '/edit');
         }
         
+        if ($tagModel->nameExists($userId, $name, $tagId)) {
+            $_SESSION['old_tag'] = ['name' => $name, 'color' => $color];
+            setFlash('error', 'You already have a tag with that name.');
+            redirect('/tags/' . $tagId . '/edit');
+        }
+
         if ($tagModel->update($tagId, $userId, $name, $color)) {
             setFlash('success', 'Tag updated successfully!');
             redirect('/tags');
@@ -140,8 +164,7 @@ class TagController {
         $tagModel = new Tag();
         
         if (!$tagModel->getById($tagId, $userId)) {
-            http_response_code(404);
-            die('Tag not found');
+            notFound('That tag does not exist or was deleted.');
         }
         
         if ($tagModel->delete($tagId, $userId)) {

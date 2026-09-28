@@ -43,7 +43,7 @@ temp/
 database/backups/
 
 # Composer
-vendor/
+/vendor/
 composer.lock
 
 # Node (if using build tools)

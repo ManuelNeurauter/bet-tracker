@@ -4,91 +4,285 @@
  */
 
 class BetController {
-    
+
+    /**
+     * Load the lists every bet form needs
+     */
+    private static function formData($userId, $keepBookmakerId = null) {
+        $bookmakerModel = new Bookmaker();
+        $sportModel = new Sport();
+        $tagModel = new Tag();
+        $tipsterModel = new Tipster();
+
+        // Archived bookmakers are hidden, except the one an existing bet already uses
+        $bookmakers = $bookmakerModel->getByUser($userId);
+        // The Shared bets bookkeeper only holds partner copies, which the owner's bet drives
+        $sharedBetModel = new SharedBet();
+        $bookkeeperId = $sharedBetModel->bookkeeperId($userId);
+        $bookmakers = array_values(array_filter($bookmakers, function ($bm) use ($bookkeeperId, $keepBookmakerId) {
+            return (int)$bm['id'] !== $bookkeeperId || (int)$bm['id'] === (int)$keepBookmakerId;
+        }));
+        if ($keepBookmakerId && !in_array((int)$keepBookmakerId, array_map('intval', array_column($bookmakers, 'id')), true)) {
+            $kept = $bookmakerModel->getById($keepBookmakerId, $userId);
+            if ($kept) {
+                $bookmakers[] = $kept;
+            }
+        }
+
+        return [
+            'bookmakers' => $bookmakers,
+            'sports' => $sportModel->getAll(),
+            'tags' => $tagModel->getByUser($userId),
+            // Inactive tipsters are included; the form only shows them on bets that already use them
+            'tipsters' => $tipsterModel->getByUser($userId, false),
+        ];
+    }
+
+    /**
+     * Read and validate the bet form. Returns [data, errors].
+     */
+    private static function readForm($userId, $currentStatus = null) {
+        $sportId = isset($_POST['sport_id']) && ctype_digit((string)$_POST['sport_id']) ? (int)$_POST['sport_id'] : null;
+        $competitionId = isset($_POST['competition_id']) && ctype_digit((string)$_POST['competition_id']) ? (int)$_POST['competition_id'] : null;
+
+        $bookmakerId = !empty($_POST['bookmaker_id']) ? (int)$_POST['bookmaker_id'] : null;
+        if ($bookmakerId) {
+            $bookmakerModel = new Bookmaker();
+            if (!$bookmakerModel->getById($bookmakerId, $userId)) {
+                $bookmakerId = null;
+            }
+        }
+
+        $status = postString('status', $currentStatus ?? BET_STATUS_PENDING);
+        $statusError = null;
+        if (!array_key_exists($status, selectableStatuses($currentStatus))) {
+            $statusError = $status === BET_STATUS_PENDING
+                ? 'A settled bet cannot go back to pending. Pick won, lost or cashed out.'
+                : 'Pick a valid result for this bet.';
+            $status = $currentStatus ?? BET_STATUS_PENDING;
+        }
+        $betType = postString('bet_type', BET_TYPE_SINGLE);
+        if (!array_key_exists($betType, betTypes())) {
+            $betType = BET_TYPE_SINGLE;
+        }
+
+        $eventDate = postString('event_date');
+        $eventDate = ($eventDate !== '' && strtotime($eventDate) !== false) ? date('Y-m-d H:i:s', strtotime($eventDate)) : null;
+
+        $data = [
+            'bookmaker_id' => $bookmakerId,
+            'sport_id' => $sportId,
+            'competition_id' => $sportId ? $competitionId : null,
+            'event_name' => mb_substr(postString('event_name'), 0, 255),
+            'event_date' => $eventDate,
+            'bet_type' => $betType,
+            'selection' => mb_substr(postString('selection'), 0, 500),
+            'odds' => (float)(postFloatOrNull('odds') ?? 0),
+            'stake' => (float)(postFloatOrNull('stake') ?? 0),
+            'status' => $status,
+            'actual_return' => postFloatOrNull('actual_return'),
+            'tax_amount' => max(0, (float)(postFloatOrNull('tax_amount') ?? 0)),
+            'cashout_amount' => postFloatOrNull('cashout_amount'),
+            'each_way' => isset($_POST['each_way']) ? 1 : 0,
+            'notes' => postString('notes'),
+        ];
+
+        [$legs, $legErrors] = self::readLegs($betType);
+        if ($legs) {
+            // Summaries of the legs stand in for the bet's own event and selection when left blank
+            if ($data['selection'] === '') {
+                $data['selection'] = mb_substr(implode(' / ', array_column($legs, 'selection')), 0, 500);
+            }
+            if ($data['event_name'] === '') {
+                $events = array_values(array_unique(array_filter(array_column($legs, 'event_name'))));
+                $data['event_name'] = $events
+                    ? mb_substr(implode(' / ', $events), 0, 255)
+                    : count($legs) . '-leg ' . strtolower(betTypeLabel($betType));
+            }
+            if (isChainedBetType($betType) && postFloatOrNull('odds') === null) {
+                $data['odds'] = combinedLegOdds($legs);
+            }
+            // A chained bet only wins when every leg won, so open legs follow the bet
+            if (isChainedBetType($betType) && $data['status'] === BET_STATUS_WON) {
+                foreach ($legs as &$leg) {
+                    if ($leg['status'] === BET_STATUS_PENDING) $leg['status'] = BET_STATUS_WON;
+                }
+                unset($leg);
+            }
+        }
+
+        // The return override only applies to wins (boosts, dead heats). The field stays in the
+        // form while hidden, so a stale value must not leak into a lost or cashed-out bet.
+        if ($data['status'] !== BET_STATUS_WON) {
+            $data['actual_return'] = null;
+        }
+        if ($data['status'] === BET_STATUS_CASHOUT) {
+            // A cashout returns exactly what the bookmaker paid, same as quick settle
+            $data['actual_return'] = $data['cashout_amount'];
+        } else {
+            $data['cashout_amount'] = null;
+        }
+
+        $errors = [];
+        if ($statusError) $errors[] = $statusError;
+        $errors = array_merge($errors, $legErrors);
+        if ($data['event_name'] === '') $errors[] = 'Event name is required.';
+        if ($data['selection'] === '') $errors[] = 'Selection is required.';
+        if ($data['odds'] < 1.01) $errors[] = 'Odds must be at least 1.01.';
+        if ($data['stake'] <= 0) $errors[] = 'Stake must be greater than zero.';
+        if ($data['status'] === BET_STATUS_CASHOUT && $data['cashout_amount'] === null) {
+            $errors[] = 'Enter the cashout amount you received.';
+        }
+
+        return [$data, $errors, $legs];
+    }
+
+    /**
+     * Read the legs of a multiple from the form. Returns [legs, errors].
+     */
+    private static function readLegs($betType) {
+        if (!isMultiLegType($betType) || !is_array($_POST['legs'] ?? null)) {
+            return [[], []];
+        }
+
+        $legs = [];
+        $errors = [];
+        foreach ($_POST['legs'] as $row) {
+            if (!is_array($row)) continue;
+            $field = function ($key) use ($row) {
+                return isset($row[$key]) && is_string($row[$key]) ? trim($row[$key]) : '';
+            };
+            $event = mb_substr($field('event_name'), 0, 255);
+            $selection = mb_substr($field('selection'), 0, 500);
+            $odds = $field('odds');
+            if ($event === '' && $selection === '' && $odds === '') {
+                continue; // an untouched empty row
+            }
+            $status = $field('status');
+            $legs[] = [
+                'event_name' => $event,
+                'selection' => $selection,
+                'odds' => is_numeric($odds) ? round((float)$odds, 3) : 0,
+                'status' => array_key_exists($status, legStatuses()) ? $status : BET_STATUS_PENDING,
+            ];
+            $n = count($legs);
+            if ($selection === '') $errors[] = "Selection $n needs a pick.";
+            if (!is_numeric($odds) || (float)$odds < 1.01) $errors[] = "Selection $n needs odds of at least 1.01.";
+        }
+
+        if ($legs) {
+            [$min, $max] = legCountRange($betType);
+            $label = betTypeLabel($betType);
+            $article = preg_match('/^[AEIOU]/', $label) ? 'An' : 'A';
+            if ($min === $max && count($legs) !== $min) {
+                $errors[] = "$article " . strtolower($label) . " has exactly $min selections, you added " . count($legs) . '.';
+            } elseif (count($legs) < $min) {
+                $errors[] = "$article " . strtolower($label) . " needs at least $min selections.";
+            }
+        }
+
+        return [$legs, $errors];
+    }
+
+    /**
+     * Apply a change in settlement to a bookmaker's balance
+     */
+    private static function adjustBookmaker($bookmakerId, $userId, $delta) {
+        if (!$bookmakerId || round($delta, 2) == 0) {
+            return;
+        }
+        $bookmakerModel = new Bookmaker();
+        $bookmaker = $bookmakerModel->getById($bookmakerId, $userId);
+        if ($bookmaker) {
+            $bookmakerModel->update($bookmakerId, $userId, [
+                'account_balance' => round((float)$bookmaker['account_balance'] + $delta, 2),
+            ]);
+        }
+    }
+
+    /**
+     * A partner's copy of a shared bet follows the owner's bet; only the owner can change it
+     */
+    private static function guardPartnerCopy($bet) {
+        if (!empty($bet['shared_from'])) {
+            setFlash('error', 'This bet is shared by ' . e($bet['shared_from']) . '. Only they can edit, settle or delete it.');
+            redirect('/bets/' . (int)$bet['id']);
+        }
+    }
+
+    /**
+     * Replace the tags and tipsters linked to a bet
+     */
+    private static function syncLinks($betId, $userId) {
+        $tagModel = new Tag();
+        $tipsterModel = new Tipster();
+        $ownTags = array_column($tagModel->getByUser($userId), 'id');
+        $ownTipsters = array_column($tipsterModel->getByUser($userId, false), 'id');
+
+        foreach ($tagModel->getByBet($betId) as $tag) {
+            $tagModel->removeFromBet($betId, $tag['id']);
+        }
+        foreach ((array)($_POST['tags'] ?? []) as $tagId) {
+            if (in_array((int)$tagId, array_map('intval', $ownTags), true)) {
+                $tagModel->addToBet($betId, (int)$tagId);
+            }
+        }
+
+        foreach ($tipsterModel->getByBet($betId) as $tipster) {
+            $tipsterModel->removeFromBet($betId, $tipster['id']);
+        }
+        foreach ((array)($_POST['tipsters'] ?? []) as $tipsterId) {
+            if (in_array((int)$tipsterId, array_map('intval', $ownTipsters), true)) {
+                $tipsterModel->addToBet($betId, (int)$tipsterId);
+            }
+        }
+    }
+
     /**
      * Show add bet page
      */
     public static function showAdd() {
         requireLogin();
-        
+
         $userId = getCurrentUserId();
-        $bookmakerModel = new Bookmaker();
-        $sportModel = new Sport();
-        $tagModel = new Tag();
-        $tipsterModel = new Tipster();
-        
-        $bookmakers = $bookmakerModel->getByUser($userId);
-        $sports = $sportModel->getAll();
-        $tags = $tagModel->getByUser($userId);
-        $tipsters = $tipsterModel->getByUser($userId);
-        
+        extract(self::formData($userId));
+        $bet = null;
+        $legs = [];
+        $selectedTags = [];
+        $selectedTipsters = [];
+        $old = $_SESSION['old_bet'] ?? null;
+        unset($_SESSION['old_bet']);
+
         include __DIR__ . '/../views/bets/add.php';
     }
-    
+
     /**
      * Handle add bet form submission
      */
     public static function handleAdd() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            exit;
-        }
-        
         requireLogin();
-        
+
         if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            setFlash('error', 'Invalid security token.');
+            setFlash('error', 'Your session expired. Please try again.');
             redirect('/bets/add');
-        }
-        
-        $userId = getCurrentUserId();
-        
-        // Handle sport and competition IDs - only accept numeric values
-        $sportId = null;
-        if (isset($_POST['sport_id']) && is_numeric($_POST['sport_id'])) {
-            $sportId = (int)$_POST['sport_id'];
         }
 
-        $competitionId = null;
-        if (isset($_POST['competition_id']) && is_numeric($_POST['competition_id'])) {
-            $competitionId = (int)$_POST['competition_id'];
-        }
-        
-        $data = [
-            'user_id' => $userId,
-            'bookmaker_id' => !empty($_POST['bookmaker_id']) ? (int)$_POST['bookmaker_id'] : null,
-            'sport_id' => $sportId,
-            'competition_id' => $competitionId,
-            'event_name' => sanitize($_POST['event_name'] ?? ''),
-            'event_date' => !empty($_POST['event_date']) ? $_POST['event_date'] : null,
-            'bet_type' => sanitize($_POST['bet_type'] ?? BET_TYPE_SINGLE),
-            'selection' => sanitize($_POST['selection'] ?? ''),
-            'odds' => (float)($_POST['odds'] ?? 1.0),
-            'stake' => (float)($_POST['stake'] ?? 0),
-            'status' => sanitize($_POST['status'] ?? BET_STATUS_PENDING),
-            'actual_return' => ($_POST['actual_return'] !== '' && isset($_POST['actual_return'])) ? (float)$_POST['actual_return'] : null,
-            'tax_amount' => (float)($_POST['tax_amount'] ?? 0),
-            'cashout_amount' => ($_POST['cashout_amount'] !== '' && isset($_POST['cashout_amount'])) ? (float)$_POST['cashout_amount'] : null,
-            'each_way' => isset($_POST['each_way']) ? 1 : 0,
-            'notes' => sanitize($_POST['notes'] ?? ''),
-        ];
-        
-        // Validation
-        if (empty($data['event_name']) || empty($data['selection']) || $data['stake'] <= 0 || $data['odds'] <= 0) {
-            setFlash('error', 'Please fill in all required fields correctly.');
+        $userId = getCurrentUserId();
+        [$data, $errors, $legs] = self::readForm($userId);
+        $data['user_id'] = $userId;
+
+        if ($errors) {
+            $_SESSION['old_bet'] = $_POST;
+            setFlash('error', implode('<br>', array_map('e', $errors)));
             redirect('/bets/add');
         }
-        
+
         $bet = new Bet();
         $betId = $bet->create($data);
-        
+
         if (!$betId) {
             setFlash('error', 'Failed to create bet. Please try again.');
             redirect('/bets/add');
-        }
-
-        if ($data['status'] !== BET_STATUS_CASHOUT) {
-            $data['cashout_amount'] = null;
         }
 
         $settledReturn = calculateSettlementReturn(
@@ -99,170 +293,124 @@ class BetController {
             $data['actual_return'],
             $data['tax_amount']
         );
-        $settlementImpact = calculateSettlementImpact(
-            $data['status'],
-            $data['stake'],
-            $data['odds'],
-            $data['cashout_amount'],
-            $settledReturn,
-            $data['tax_amount']
-        );
 
         if ($settledReturn !== null) {
-            $settlementUpdate = [
+            $bet->update($betId, $userId, [
                 'actual_return' => $settledReturn,
+                'cashout_amount' => $data['cashout_amount'],
                 'settled_at' => date('Y-m-d H:i:s'),
-            ];
-            if ($data['status'] === BET_STATUS_CASHOUT) {
-                $settlementUpdate['cashout_amount'] = $data['cashout_amount'] ?? $settledReturn;
-            }
-            $bet->update($betId, $userId, $settlementUpdate);
+            ]);
 
-            if ($data['bookmaker_id'] && $settlementImpact != 0) {
-                $bookmakerModel = new Bookmaker();
-                $bookmaker = $bookmakerModel->getById($data['bookmaker_id'], $userId);
-                if ($bookmaker) {
-                    $bookmakerModel->update($data['bookmaker_id'], $userId, [
-                        'account_balance' => (float)$bookmaker['account_balance'] + $settlementImpact,
-                    ]);
-                    syncBankrollSnapshot($userId);
-                }
+            $impact = calculateSettlementImpact($data['status'], $data['stake'], $data['odds'], $data['cashout_amount'], $settledReturn, $data['tax_amount']);
+            if ($data['bookmaker_id'] && $impact != 0) {
+                self::adjustBookmaker($data['bookmaker_id'], $userId, $impact);
+                syncBankrollSnapshot($userId);
             }
         }
-        
-        // Add tags if any
-        if (!empty($_POST['tags'])) {
-            $tagModel = new Tag();
-            foreach ((array)$_POST['tags'] as $tagId) {
-                $tagModel->addToBet($betId, (int)$tagId);
-            }
-        }
-        
-        // Add tipsters if any
-        if (!empty($_POST['tipsters'])) {
-            $tipsterModel = new Tipster();
-            foreach ((array)$_POST['tipsters'] as $tipsterId) {
-                $tipsterModel->addToBet($betId, (int)$tipsterId);
-            }
-        }
-        
-        setFlash('success', 'Bet created successfully!');
-        redirect('/bets/' . $betId);
+
+        self::syncLinks($betId, $userId);
+        (new BetLeg())->replaceForBet($betId, $legs);
+
+        setFlash('success', 'Bet added.');
+        redirect(isset($_POST['add_another']) ? '/bets/add' : '/bets/' . $betId);
     }
-    
+
     /**
      * Show bet details
      */
     public static function show($betId) {
         requireLogin();
-        
+
         $userId = getCurrentUserId();
         $betModel = new Bet();
         $bet = $betModel->getById($betId, $userId);
-        
+
         if (!$bet) {
-            http_response_code(404);
-            die('Bet not found');
+            notFound('That bet does not exist or was deleted.');
         }
-        
+
         $tagModel = new Tag();
         $tipsterModel = new Tipster();
-        
+
         $tags = $tagModel->getByBet($betId);
         $tipsters = $tipsterModel->getByBet($betId);
-        
+
+        $sharedBetModel = new SharedBet();
+        $partnerShare = !empty($bet['shared_from']) ? $sharedBetModel->findByPartnerBet($betId) : null;
+        // A partner's copy has no legs of its own; it shows the owner's
+        $legs = (new BetLeg())->getByBet($partnerShare ? $partnerShare['bet_id'] : $betId);
+        $shares = $sharedBetModel->getByBet($partnerShare ? $partnerShare['bet_id'] : $betId);
+        // The whole slip, which a partner's copy only holds part of
+        $slip = $partnerShare ? $betModel->getById($partnerShare['bet_id'], $partnerShare['owner_id']) : $bet;
+        $oldShare = $_SESSION['old_share'] ?? null;
+        unset($_SESSION['old_share']);
+
         include __DIR__ . '/../views/bets/view.php';
     }
-    
+
     /**
      * Show edit bet page
      */
     public static function showEdit($betId) {
         requireLogin();
-        
+
         $userId = getCurrentUserId();
         $betModel = new Bet();
         $bet = $betModel->getById($betId, $userId);
-        
+
         if (!$bet) {
-            http_response_code(404);
-            die('Bet not found');
+            notFound('That bet does not exist or was deleted.');
         }
-        
-        $bookmakerModel = new Bookmaker();
-        $sportModel = new Sport();
+
+        self::guardPartnerCopy($bet);
+
+        extract(self::formData($userId, $bet['bookmaker_id']));
         $tagModel = new Tag();
         $tipsterModel = new Tipster();
-        
-        $bookmakers = $bookmakerModel->getByUser($userId);
-        $sports = $sportModel->getAll();
-        $tags = $tagModel->getByUser($userId);
-        $tipsters = $tipsterModel->getByUser($userId);
-        $selectedTags = $tagModel->getByBet($betId);
-        $selectedTipsters = $tipsterModel->getByBet($betId);
-        
+        $selectedTags = array_map('intval', array_column($tagModel->getByBet($betId), 'id'));
+        $selectedTipsters = array_map('intval', array_column($tipsterModel->getByBet($betId), 'id'));
+        $legs = (new BetLeg())->getByBet($betId);
+        $old = $_SESSION['old_bet'] ?? null;
+        unset($_SESSION['old_bet']);
+
         include __DIR__ . '/../views/bets/edit.php';
     }
-    
+
     /**
      * Handle edit bet form submission
      */
     public static function handleEdit($betId) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            exit;
-        }
-        
         requireLogin();
-        
+
         if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            setFlash('error', 'Invalid security token.');
+            setFlash('error', 'Your session expired. Please try again.');
             redirect('/bets/' . $betId . '/edit');
         }
-        
+
         $userId = getCurrentUserId();
         $betModel = new Bet();
-        
+
         // Get current bet before updating
         $currentBet = $betModel->getById($betId, $userId);
         if (!$currentBet) {
-            http_response_code(404);
-            die('Bet not found');
-        }
-        
-        // Handle sport and competition IDs - only accept numeric values
-        $sportId = null;
-        if (isset($_POST['sport_id']) && is_numeric($_POST['sport_id'])) {
-            $sportId = (int)$_POST['sport_id'];
+            notFound('That bet does not exist or was deleted.');
         }
 
-        $competitionId = null;
-        if (isset($_POST['competition_id']) && is_numeric($_POST['competition_id'])) {
-            $competitionId = (int)$_POST['competition_id'];
-        }
-        
-        $data = [
-            'bookmaker_id' => !empty($_POST['bookmaker_id']) ? (int)$_POST['bookmaker_id'] : null,
-            'sport_id' => $sportId,
-            'competition_id' => $competitionId,
-            'event_name' => sanitize($_POST['event_name'] ?? ''),
-            'event_date' => !empty($_POST['event_date']) ? $_POST['event_date'] : null,
-            'bet_type' => sanitize($_POST['bet_type'] ?? BET_TYPE_SINGLE),
-            'selection' => sanitize($_POST['selection'] ?? ''),
-            'odds' => (float)($_POST['odds'] ?? 1.0),
-            'stake' => (float)($_POST['stake'] ?? 0),
-            'status' => sanitize($_POST['status'] ?? BET_STATUS_PENDING),
-            'actual_return' => !empty($_POST['actual_return']) ? (float)$_POST['actual_return'] : null,
-            'tax_amount' => (float)($_POST['tax_amount'] ?? 0),
-            'cashout_amount' => !empty($_POST['cashout_amount']) ? (float)$_POST['cashout_amount'] : null,
-            'each_way' => isset($_POST['each_way']) ? 1 : 0,
-            'notes' => sanitize($_POST['notes'] ?? ''),
-        ];
+        self::guardPartnerCopy($currentBet);
 
-        if ($data['status'] !== BET_STATUS_CASHOUT) {
-            $data['cashout_amount'] = null;
+        [$data, $errors, $legs] = self::readForm($userId, $currentBet['status']);
+        $sharedBetModel = new SharedBet();
+        $partnerStake = $sharedBetModel->partnerStake($betId);
+        if ($partnerStake > 0 && $data['stake'] <= $partnerStake) {
+            $errors[] = 'The people you share this bet with put in ' . formatCurrency($partnerStake) . '. The stake has to be more than that.';
         }
-        
+        if ($errors) {
+            $_SESSION['old_bet'] = $_POST;
+            setFlash('error', implode('<br>', array_map('e', $errors)));
+            redirect('/bets/' . $betId . '/edit');
+        }
+
+        $data['potential_return'] = calculatePotentialReturn($data['stake'], $data['odds']);
         $data['actual_return'] = calculateSettlementReturn(
             $data['status'],
             $data['stake'],
@@ -272,16 +420,18 @@ class BetController {
             $data['tax_amount']
         );
 
-        if ($data['actual_return'] !== null && $data['status'] !== BET_STATUS_PENDING) {
+        if ($data['status'] === BET_STATUS_PENDING) {
+            $data['settled_at'] = null;
+        } elseif ($currentBet['status'] !== $data['status'] || empty($currentBet['settled_at'])) {
             $data['settled_at'] = date('Y-m-d H:i:s');
         }
-        
+
         if (!$betModel->update($betId, $userId, $data)) {
             setFlash('error', 'Failed to update bet. Please try again.');
             redirect('/bets/' . $betId . '/edit');
         }
-        
-        // Update bookmaker balance if the settlement changed
+
+        // Move the settlement effect between bookmaker balances
         $oldImpact = calculateSettlementImpact(
             $currentBet['status'],
             (float)$currentBet['stake'],
@@ -299,114 +449,136 @@ class BetController {
             $data['tax_amount']
         );
 
-        $bookmakerModel = new Bookmaker();
+        self::adjustBookmaker($currentBet['bookmaker_id'] ?? null, $userId, -$oldImpact);
+        self::adjustBookmaker($data['bookmaker_id'], $userId, $newImpact);
 
-        if (($currentBet['bookmaker_id'] ?? null) && $oldImpact != 0) {
-            $currentBookmaker = $bookmakerModel->getById($currentBet['bookmaker_id'], $userId);
-            if ($currentBookmaker) {
-                $bookmakerModel->update($currentBet['bookmaker_id'], $userId, [
-                    'account_balance' => (float)$currentBookmaker['account_balance'] - $oldImpact,
-                ]);
-            }
-        }
-
-        if (($data['bookmaker_id'] ?? null) && $newImpact != 0) {
-            $targetBookmaker = $bookmakerModel->getById($data['bookmaker_id'], $userId);
-            if ($targetBookmaker) {
-                $bookmakerModel->update($data['bookmaker_id'], $userId, [
-                    'account_balance' => (float)$targetBookmaker['account_balance'] + $newImpact,
-                ]);
-            }
-        }
-
-        if ($oldImpact != 0 || $newImpact != 0 || ($currentBet['bookmaker_id'] ?? null) !== ($data['bookmaker_id'] ?? null)) {
+        if ($oldImpact != 0 || $newImpact != 0) {
             syncBankrollSnapshot($userId);
         }
-        
-        // Update tags
-        $tagModel = new Tag();
-        $currentTags = $tagModel->getByBet($betId);
-        
-        // Remove all current tags
-        foreach ($currentTags as $tag) {
-            $tagModel->removeFromBet($betId, $tag['id']);
-        }
-        
-        // Add new tags
-        if (!empty($_POST['tags'])) {
-            foreach ((array)$_POST['tags'] as $tagId) {
-                $tagModel->addToBet($betId, (int)$tagId);
-            }
-        }
-        
-        setFlash('success', 'Bet updated successfully!');
+
+        self::syncLinks($betId, $userId);
+        (new BetLeg())->replaceForBet($betId, $legs);
+        $sharedBetModel->syncFromOwner($betId, $userId);
+
+        setFlash('success', 'Bet updated.');
         redirect('/bets/' . $betId);
     }
-    
+
+    /**
+     * Current list filters from the query string
+     */
+    private static function listFilters() {
+        $keys = ['status', 'sport_id', 'bookmaker_id', 'bet_type', 'tag_id', 'tipster_id', 'date_from', 'date_to',
+                 'min_odds', 'max_odds', 'min_stake', 'max_stake', 'search'];
+        $filters = [];
+        foreach ($keys as $key) {
+            $value = $_GET[$key] ?? '';
+            $filters[$key] = is_string($value) ? trim($value) : '';
+        }
+        return $filters;
+    }
+
     /**
      * Show bet history/list
      */
     public static function list() {
         requireLogin();
-        
+
         $userId = getCurrentUserId();
-        $page = (int)($_GET['page'] ?? 1);
-        $page = max(1, $page);
-        
-        $filters = [
-            'status' => $_GET['status'] ?? '',
-            'sport_id' => $_GET['sport_id'] ?? '',
-            'bookmaker_id' => $_GET['bookmaker_id'] ?? '',
-            'bet_type' => $_GET['bet_type'] ?? '',
-            'date_from' => $_GET['date_from'] ?? '',
-            'date_to' => $_GET['date_to'] ?? '',
-            'min_odds' => $_GET['min_odds'] ?? '',
-            'max_odds' => $_GET['max_odds'] ?? '',
-            'min_stake' => $_GET['min_stake'] ?? '',
-            'max_stake' => $_GET['max_stake'] ?? '',
-            'search' => $_GET['search'] ?? '',
-        ];
-        
+        $filters = self::listFilters();
+        $sort = isset(Bet::SORTS[$_GET['sort'] ?? '']) ? $_GET['sort'] : 'date_desc';
+
         $betModel = new Bet();
-        $bets = $betModel->getByUser($userId, $filters, $page);
         $totalBets = $betModel->countByUser($userId, $filters);
-        $totalPages = ceil($totalBets / ITEMS_PER_PAGE);
-        
+        $totalPages = max(1, (int)ceil($totalBets / ITEMS_PER_PAGE));
+        $page = min(max(1, (int)($_GET['page'] ?? 1)), $totalPages);
+
+        $bets = $betModel->getByUser($userId, $filters, $page, ITEMS_PER_PAGE, $sort);
+        $statusCounts = $betModel->countByStatus($userId, $filters);
+        $totals = $betModel->getTotals($userId, $filters);
+
+        $tagModel = new Tag();
+        $betTags = $tagModel->getByBets(array_column($bets, 'id'));
+        $legCounts = (new BetLeg())->countByBets(array_column($bets, 'id'));
+
         $bookmakerModel = new Bookmaker();
         $sportModel = new Sport();
-        
-        $bookmakers = $bookmakerModel->getByUser($userId);
+        $tipsterModel = new Tipster();
+
+        $bookmakers = $bookmakerModel->getByUser($userId, true);
         $sports = $sportModel->getAll();
-        $userData = getCurrentUser();
-        
+        $tags = $tagModel->getByUser($userId);
+        $tipsters = $tipsterModel->getByUser($userId, false);
+
         include __DIR__ . '/../views/bets/list.php';
     }
-    
+
+    /**
+     * Download the filtered bet list as CSV
+     */
+    public static function export() {
+        requireLogin();
+
+        $userId = getCurrentUserId();
+        $filters = self::listFilters();
+        $sort = isset(Bet::SORTS[$_GET['sort'] ?? '']) ? $_GET['sort'] : 'date_desc';
+
+        $betModel = new Bet();
+        $bets = $betModel->getByUser($userId, $filters, 1, null, $sort);
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="bets-' . date('Y-m-d') . '.csv"');
+
+        $out = fopen('php://output', 'w');
+        fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel detects the encoding
+        fputcsv($out, ['ID', 'Event date', 'Event', 'Selection', 'Sport', 'Bookmaker', 'Type', 'Odds', 'Stake',
+                       'Potential return', 'Status', 'Return', 'Profit/Loss', 'Tax', 'Notes', 'Created'], ',', '"', '');
+        foreach ($bets as $bet) {
+            $profit = betProfit($bet);
+            fputcsv($out, [
+                $bet['id'],
+                $bet['event_date'],
+                plainText($bet['event_name']),
+                plainText($bet['selection']),
+                plainText($bet['sport_name']),
+                plainText($bet['bookmaker_name']),
+                betTypeLabel($bet['bet_type']),
+                $bet['odds'],
+                $bet['stake'],
+                $bet['potential_return'],
+                betStatuses()[$bet['status']] ?? $bet['status'],
+                $bet['actual_return'],
+                $profit === null ? '' : number_format($profit, 2, '.', ''),
+                $bet['tax_amount'],
+                plainText($bet['notes']),
+                $bet['created_at'],
+            ], ',', '"', '');
+        }
+        fclose($out);
+        exit;
+    }
+
     /**
      * Delete bet
      */
     public static function delete($betId) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            exit;
-        }
-        
         requireLogin();
-        
+
         if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            setFlash('error', 'Invalid security token.');
+            setFlash('error', 'Your session expired. Please try again.');
             redirect('/bets');
         }
-        
+
         $userId = getCurrentUserId();
         $betModel = new Bet();
-        
+
         // Verify ownership
         $currentBet = $betModel->getById($betId, $userId);
         if (!$currentBet) {
-            http_response_code(404);
-            die('Bet not found');
+            notFound('That bet does not exist or was deleted.');
         }
+        self::guardPartnerCopy($currentBet);
+
         $impact = calculateSettlementImpact(
             $currentBet['status'],
             (float)$currentBet['stake'],
@@ -415,27 +587,24 @@ class BetController {
             $currentBet['actual_return'] ?? null,
             (float)($currentBet['tax_amount'] ?? 0)
         );
-        
-        if ($betModel->delete($betId, $userId)) {
-            if (($currentBet['bookmaker_id'] ?? null) && $impact != 0) {
-                $bookmakerModel = new Bookmaker();
-                $bookmaker = $bookmakerModel->getById($currentBet['bookmaker_id'], $userId);
-                if ($bookmaker) {
-                    $bookmakerModel->update($currentBet['bookmaker_id'], $userId, [
-                        'account_balance' => (float)$bookmaker['account_balance'] - $impact,
-                    ]);
-                }
-            }
 
-            if ($impact != 0 || ($currentBet['bookmaker_id'] ?? null)) {
+        $sharedBetModel = new SharedBet();
+        $sharedUsers = $sharedBetModel->beforeOwnerDelete($currentBet);
+
+        if ($betModel->delete($betId, $userId)) {
+            foreach ($sharedUsers as $sharedUserId) {
+                syncBankrollSnapshot($sharedUserId);
+            }
+            self::adjustBookmaker($currentBet['bookmaker_id'] ?? null, $userId, -$impact);
+            if ($impact != 0) {
                 syncBankrollSnapshot($userId);
             }
-            setFlash('success', 'Bet deleted successfully!');
+            setFlash('success', 'Bet deleted.');
         } else {
             setFlash('error', 'Failed to delete bet.');
         }
-        
-        redirect('/bets');
+
+        $back = $_POST['redirect'] ?? '/bets';
+        redirect(is_string($back) && strpos($back, '/bets') === 0 ? $back : '/bets');
     }
 }
-
