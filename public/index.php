@@ -14,6 +14,7 @@ startSession();
 // Load Models
 require_once '../src/models/User.php';
 require_once '../src/models/Bet.php';
+require_once '../src/models/BetLeg.php';
 require_once '../src/models/Bookmaker.php';
 require_once '../src/models/Tag.php';
 require_once '../src/models/Tipster.php';

@@ -198,7 +198,7 @@ $lastRow = min($totalBets, $page * ITEMS_PER_PAGE);
                                 <a href="/bets/<?php echo (int)$bet['id']; ?>" class="cell-title"><?php echo e($bet['event_name']); ?></a>
                                 <span class="cell-sub">
                                     <?php echo e($bet['selection']); ?>
-                                    <?php if ($bet['bet_type'] !== 'single'): ?> · <?php echo e(betTypeLabel($bet['bet_type'])); ?><?php endif; ?>
+                                    <?php if ($bet['bet_type'] !== 'single'): ?> · <?php echo e(betTypeLabel($bet['bet_type'])); ?><?php endif; ?><?php if (!empty($legCounts[(int)$bet['id']])): ?> · <?php echo $legCounts[(int)$bet['id']]; ?> legs<?php endif; ?>
                                 </span>
                                 <?php if (!empty($bet['shared_from']) || !empty($bet['shared_partners'])): ?>
                                 <span class="shared-note"><?php echo icon('users', 'icon-xs'); ?><?php echo !empty($bet['shared_from']) ? 'Shared by ' . e($bet['shared_from']) : 'Shared with ' . (int)$bet['shared_partners'] . ' other' . ((int)$bet['shared_partners'] === 1 ? '' : 's'); ?></span>

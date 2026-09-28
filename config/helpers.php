@@ -422,6 +422,69 @@ function betTypeLabel($type) {
 }
 
 /**
+ * Bet types that are made of several selections (legs)
+ */
+function multiLegBetTypes() {
+    return [
+        BET_TYPE_DOUBLE, BET_TYPE_TREBLE, BET_TYPE_ACCUMULATOR,
+        BET_TYPE_LUCKY_15, BET_TYPE_LUCKY_31, BET_TYPE_LUCKY_63, BET_TYPE_SYSTEM,
+    ];
+}
+
+function isMultiLegType($type) {
+    return in_array($type, multiLegBetTypes(), true);
+}
+
+/**
+ * Types where every leg must win and the odds multiply together
+ */
+function isChainedBetType($type) {
+    return in_array($type, [BET_TYPE_DOUBLE, BET_TYPE_TREBLE, BET_TYPE_ACCUMULATOR], true);
+}
+
+/**
+ * How many legs a bet type needs: [min, max] (max null = no limit)
+ */
+function legCountRange($type) {
+    $fixed = [
+        BET_TYPE_DOUBLE => 2,
+        BET_TYPE_TREBLE => 3,
+        BET_TYPE_LUCKY_15 => 4,
+        BET_TYPE_LUCKY_31 => 5,
+        BET_TYPE_LUCKY_63 => 6,
+    ];
+    if (isset($fixed[$type])) {
+        return [$fixed[$type], $fixed[$type]];
+    }
+    return [2, null];
+}
+
+/**
+ * Results a single leg can have. A leg can be void (postponed match): it then counts at odds 1.00.
+ */
+function legStatuses() {
+    return [
+        BET_STATUS_PENDING => 'Pending',
+        BET_STATUS_WON => 'Won',
+        BET_STATUS_LOST => 'Lost',
+        BET_STATUS_VOID => 'Void',
+    ];
+}
+
+/**
+ * Combined odds of a chained bet: every leg's odds multiplied, void legs count as 1.00
+ */
+function combinedLegOdds(array $legs) {
+    $odds = 1.0;
+    foreach ($legs as $leg) {
+        if (($leg['status'] ?? '') !== BET_STATUS_VOID) {
+            $odds *= (float)$leg['odds'];
+        }
+    }
+    return round($odds, 3);
+}
+
+/**
  * Status pill HTML
  */
 function getStatusBadge($status) {

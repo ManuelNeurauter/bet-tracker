@@ -1981,6 +1981,238 @@ a.cell-title:hover {
     text-align: right;
 }
 
+/* Legs of a multiple (bet form) */
+.label-note {
+    margin-left: 6px;
+    font-weight: 450;
+    font-size: 12px;
+}
+
+.legs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.leg-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 36px;
+    grid-template-areas:
+        "num event selection remove"
+        "num odds status .";
+    gap: 10px;
+    align-items: end;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+}
+
+.leg-row .leg-num { grid-area: num; align-self: start; margin-top: 21px; }
+.leg-row .leg-event { grid-area: event; }
+.leg-row .leg-selection { grid-area: selection; }
+.leg-row .leg-odds { grid-area: odds; }
+.leg-row .leg-status { grid-area: status; }
+.leg-row .leg-remove { grid-area: remove; }
+
+.leg-num {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 40px;
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.leg-row .field > label {
+    font-size: 12px;
+    color: var(--text-2);
+}
+
+.leg-row .leg-remove {
+    height: 40px;
+    width: 36px;
+}
+
+.leg-row select[data-leg-status="won"] { color: var(--win); }
+.leg-row select[data-leg-status="lost"] { color: var(--loss); }
+.leg-row select[data-leg-status="void"] { color: var(--void); }
+
+.legs-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.legs-combined {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-2);
+}
+
+.legs-combined strong {
+    color: var(--text);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+}
+
+.slip-legs {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    counter-reset: leg;
+}
+
+.slip-legs li {
+    counter-increment: leg;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--text-2);
+}
+
+.slip-legs li span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.slip-legs li span::before {
+    content: counter(leg) ". ";
+    color: var(--text-3);
+}
+
+.slip-legs li strong {
+    color: var(--text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.slip-legs li.won strong { color: var(--win); }
+.slip-legs li.lost strong { color: var(--loss); text-decoration: line-through; }
+.slip-legs li.void strong { color: var(--void); text-decoration: line-through; }
+
+/* Legs of a multiple (bet detail) */
+.leg-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.leg-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 22px;
+    border-top: 1px solid var(--border);
+}
+
+.leg-item:first-child {
+    border-top: 0;
+}
+
+.leg-item .leg-mark {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    font-size: 12.5px;
+    font-weight: 650;
+    color: var(--tone, var(--text-2));
+    background: var(--tone-soft, var(--surface-3));
+    font-variant-numeric: tabular-nums;
+}
+
+.leg-item[data-status="won"] { --tone: var(--win); --tone-soft: var(--win-soft); }
+.leg-item[data-status="lost"] { --tone: var(--loss); --tone-soft: var(--loss-soft); }
+.leg-item[data-status="void"] { --tone: var(--void); --tone-soft: var(--void-soft); }
+.leg-item[data-status="pending"] { --tone: var(--pending); --tone-soft: var(--pending-soft); }
+
+.leg-item .leg-mark .icon {
+    width: 15px;
+    height: 15px;
+}
+
+.leg-item .leg-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.leg-item .leg-pick {
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.leg-item .leg-event {
+    font-size: 12.5px;
+    color: var(--text-3);
+    margin-top: 2px;
+    word-break: break-word;
+}
+
+.leg-item .leg-side {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.leg-item[data-status="lost"] .odds-chip,
+.leg-item[data-status="void"] .odds-chip {
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
+.leg-item .leg-settle {
+    display: flex;
+    gap: 6px;
+}
+
+.legs-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 22px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+    font-size: 13px;
+    color: var(--text-2);
+}
+
+.legs-card {
+    overflow: hidden;
+}
+
+.legs-summary > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legs-summary strong {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Bet ticket (detail page) ---------- */
 .ticket {
     position: relative;
@@ -3797,6 +4029,31 @@ fieldset.field > legend {
 @media (max-width: 760px) {
     body {
         font-size: 14px;
+    }
+
+    .leg-row {
+        grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 36px;
+        grid-template-areas:
+            "num event event remove"
+            "num selection selection selection"
+            "num odds status status";
+    }
+
+    .leg-row .leg-num { margin-top: 0; height: 24px; }
+
+    .leg-item {
+        flex-wrap: wrap;
+        padding: 12px 16px;
+    }
+
+    .leg-item .leg-side {
+        width: 100%;
+        padding-left: 44px;
+        justify-content: space-between;
+    }
+
+    .legs-summary {
+        padding: 12px 16px;
     }
 
     .choice-grid,

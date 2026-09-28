@@ -112,6 +112,9 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                 ];
                 
                 if ($betModel->update($betId, $userId, $updateData)) {
+                    if ($status === BET_STATUS_WON && isChainedBetType($bet['bet_type'])) {
+                        (new BetLeg())->settleOpenAsWon($betId);
+                    }
                     $oldImpact = calculateSettlementImpact(
                         $bet['status'],
                         (float)$bet['stake'],
@@ -151,6 +154,28 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                     $response = ['success' => false, 'message' => 'Failed to update bet'];
                 }
             }
+        }
+    }
+}
+elseif (($segments[1] ?? '') === 'bets' && ctype_digit($segments[2] ?? '') && ($segments[3] ?? '') === 'legs' && ctype_digit($segments[4] ?? '')) {
+    // Set the result of one leg of a multiple
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $input = json_decode(file_get_contents('php://input'), true) ?: [];
+        $csrfToken = $input['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+        $status = $input['status'] ?? null;
+        $betModel = new Bet();
+        if (!verifyCSRFToken($csrfToken)) {
+            $response = ['success' => false, 'message' => 'Invalid security token'];
+        } elseif (!array_key_exists((string)$status, legStatuses())) {
+            $response = ['success' => false, 'message' => 'Pick a valid result'];
+        } elseif (!($legBet = $betModel->getById((int)$segments[2], getCurrentUserId()))) {
+            $response = ['success' => false, 'message' => 'Bet not found'];
+        } elseif (!empty($legBet['shared_from'])) {
+            $response = ['success' => false, 'message' => 'Only ' . $legBet['shared_from'] . ' can settle this shared bet'];
+        } elseif ((new BetLeg())->updateStatus((int)$segments[4], (int)$segments[2], $status)) {
+            $response = ['success' => true];
+        } else {
+            $response = ['success' => false, 'message' => 'Selection not found'];
         }
     }
 }

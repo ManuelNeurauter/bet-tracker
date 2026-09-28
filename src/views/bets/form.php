@@ -1,7 +1,7 @@
 <?php
 /**
  * Shared bet form for add and edit.
- * Expects $bet (array|null), $bookmakers, $sports, $tags, $tipsters, $selectedTags, $selectedTipsters, $old (array|null).
+ * Expects $bet (array|null), $legs (array), $bookmakers, $sports, $tags, $tipsters, $selectedTags, $selectedTipsters, $old (array|null).
  */
 $isEdit = !empty($bet);
 $old = $old ?? null;
@@ -25,6 +25,19 @@ foreach ($bookmakers as $bm) {
     $taxRates[$bm['id']] = (float)$bm['tax_percentage'];
     $balances[$bm['id']] = (float)$bm['account_balance'] + (float)$bm['bonus_balance'];
 }
+// Legs of a multiple: what was just submitted, else what is saved, else two empty rows
+$formLegs = $old !== null ? array_values(array_filter((array)($old['legs'] ?? []), 'is_array')) : ($legs ?? []);
+if (!$formLegs) {
+    $formLegs = [[], []];
+}
+$legRules = [];
+foreach (multiLegBetTypes() as $type) {
+    [$min, $max] = legCountRange($type);
+    $legRules[$type] = ['min' => $min, 'max' => $max, 'chained' => isChainedBetType($type), 'label' => betTypeLabel($type)];
+}
+$legField = function ($leg, $key) {
+    return isset($leg[$key]) && is_scalar($leg[$key]) ? plainText((string)$leg[$key]) : '';
+};
 $statusIcons = ['pending' => 'clock', 'won' => 'circle-check', 'lost' => 'circle-x', 'cashout' => 'hand-coins', 'void' => 'circle-slash'];
 $action = $isEdit ? '/bets/' . (int)$bet['id'] . '/edit' : '/bets/add';
 ?>
@@ -46,7 +59,7 @@ $action = $isEdit ? '/bets/' . (int)$bet['id'] . '/edit' : '/bets/add';
                 </div>
                 <div class="form-grid">
                     <div class="field col-12">
-                        <label for="event_name">Event <span class="req">*</span></label>
+                        <label for="event_name">Event <span class="req" data-single-only>*</span><span class="text-muted label-note" data-multi-only hidden>optional, filled in from your selections</span></label>
                         <input type="text" id="event_name" name="event_name" required maxlength="255" value="<?php echo e($val('event_name')); ?>" placeholder="e.g. Arsenal vs Chelsea" autocomplete="off" <?php echo $isEdit ? '' : 'autofocus'; ?>>
                     </div>
                     <div class="field col-4">
@@ -81,7 +94,7 @@ $action = $isEdit ? '/bets/' . (int)$bet['id'] . '/edit' : '/bets/add';
                 </div>
                 <div class="form-grid">
                     <div class="field col-12">
-                        <label for="selection">Selection <span class="req">*</span></label>
+                        <label for="selection">Selection <span class="req" data-single-only>*</span><span class="text-muted label-note" data-multi-only hidden>optional, filled in from your selections</span></label>
                         <input type="text" id="selection" name="selection" required maxlength="500" value="<?php echo e($val('selection')); ?>" placeholder="e.g. Arsenal to win, Over 2.5 goals" autocomplete="off">
                     </div>
                     <div class="field col-4">
@@ -111,6 +124,78 @@ $action = $isEdit ? '/bets/' . (int)$bet['id'] . '/edit' : '/bets/add';
                             <input type="checkbox" name="each_way" value="1" <?php echo $val('each_way') ? 'checked' : ''; ?>>
                             <span>Each-way bet <small>Half the stake on the win, half on the place.</small></span>
                         </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section" data-legs data-leg-rules="<?php echo e(json_encode($legRules)); ?>" <?php echo isMultiLegType($val('bet_type', BET_TYPE_SINGLE)) ? '' : 'hidden'; ?>>
+                <div class="form-section-head">
+                    <span class="step"><?php echo icon('layers'); ?></span>
+                    <div>
+                        <h2>Selections</h2>
+                        <p data-legs-hint>Each pick on the slip, with its own odds and result.</p>
+                    </div>
+                </div>
+                <ol class="legs" data-legs-list>
+                    <?php foreach ($formLegs as $i => $leg): ?>
+                    <?php $legStatus = array_key_exists($legField($leg, 'status'), legStatuses()) ? $legField($leg, 'status') : BET_STATUS_PENDING; ?>
+                    <li class="leg-row" data-leg>
+                        <span class="leg-num" data-leg-num><?php echo $i + 1; ?></span>
+                        <div class="field leg-event">
+                            <label for="leg_<?php echo $i; ?>_event">Event</label>
+                            <input type="text" id="leg_<?php echo $i; ?>_event" name="legs[<?php echo $i; ?>][event_name]" maxlength="255" value="<?php echo e($legField($leg, 'event_name')); ?>" placeholder="e.g. Liverpool vs Everton" autocomplete="off">
+                        </div>
+                        <div class="field leg-selection">
+                            <label for="leg_<?php echo $i; ?>_selection">Selection</label>
+                            <input type="text" id="leg_<?php echo $i; ?>_selection" name="legs[<?php echo $i; ?>][selection]" maxlength="500" value="<?php echo e($legField($leg, 'selection')); ?>" placeholder="e.g. Liverpool to win" autocomplete="off">
+                        </div>
+                        <div class="field leg-odds">
+                            <label for="leg_<?php echo $i; ?>_odds">Odds</label>
+                            <input type="number" id="leg_<?php echo $i; ?>_odds" name="legs[<?php echo $i; ?>][odds]" step="0.001" min="1.01" inputmode="decimal" value="<?php echo is_numeric($legField($leg, 'odds')) ? e(rtrim(rtrim(inputNumber($legField($leg, 'odds'), 3), '0'), '.')) : ''; ?>" placeholder="1.80">
+                        </div>
+                        <div class="field leg-status">
+                            <label for="leg_<?php echo $i; ?>_status">Result</label>
+                            <select id="leg_<?php echo $i; ?>_status" name="legs[<?php echo $i; ?>][status]" data-leg-status="<?php echo e($legStatus); ?>">
+                                <?php foreach (legStatuses() as $key => $label): ?>
+                                <option value="<?php echo $key; ?>" <?php echo $legStatus === $key ? 'selected' : ''; ?>><?php echo e($label); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-icon leg-remove" data-leg-remove title="Remove this selection" aria-label="Remove selection <?php echo $i + 1; ?>"><?php echo icon('trash-2', 'icon-sm'); ?></button>
+                    </li>
+                    <?php endforeach; ?>
+                </ol>
+                <template data-leg-template>
+                    <li class="leg-row" data-leg>
+                        <span class="leg-num" data-leg-num></span>
+                        <div class="field leg-event">
+                            <label data-for="event">Event</label>
+                            <input type="text" data-name="event_name" maxlength="255" placeholder="e.g. Liverpool vs Everton" autocomplete="off">
+                        </div>
+                        <div class="field leg-selection">
+                            <label data-for="selection">Selection</label>
+                            <input type="text" data-name="selection" maxlength="500" placeholder="e.g. Liverpool to win" autocomplete="off">
+                        </div>
+                        <div class="field leg-odds">
+                            <label data-for="odds">Odds</label>
+                            <input type="number" data-name="odds" step="0.001" min="1.01" inputmode="decimal" placeholder="1.80">
+                        </div>
+                        <div class="field leg-status">
+                            <label data-for="status">Result</label>
+                            <select data-name="status" data-leg-status="pending">
+                                <?php foreach (legStatuses() as $key => $label): ?>
+                                <option value="<?php echo $key; ?>"><?php echo e($label); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-icon leg-remove" data-leg-remove title="Remove this selection" aria-label="Remove selection"><?php echo icon('trash-2', 'icon-sm'); ?></button>
+                    </li>
+                </template>
+                <div class="legs-foot">
+                    <button type="button" class="btn btn-sm" data-leg-add><?php echo icon('plus', 'icon-sm'); ?> Add selection</button>
+                    <div class="legs-combined" data-legs-combined hidden>
+                        <span>Combined odds <strong class="mono" data-legs-odds>—</strong></span>
+                        <button type="button" class="btn btn-ghost btn-sm" data-legs-use hidden>Use as bet odds</button>
                     </div>
                 </div>
             </section>
@@ -256,6 +341,7 @@ $action = $isEdit ? '/bets/' . (int)$bet['id'] . '/edit' : '/bets/add';
                     <div class="eyebrow"><?php echo icon('ticket', 'icon-xs'); ?> Bet slip</div>
                     <div class="slip-event" data-slip="event">Your event</div>
                     <div class="slip-selection" data-slip="selection">Pick a selection</div>
+                    <ol class="slip-legs" data-slip-legs hidden></ol>
                 </div>
                 <div class="slip-lines">
                     <div class="slip-line"><span>Odds</span><strong class="mono" data-slip="odds">—</strong></div>

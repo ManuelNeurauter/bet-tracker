@@ -238,6 +238,30 @@
         }
     };
 
+    /* Result of one leg of a multiple */
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-leg-settle]');
+        if (!btn) return;
+        const card = btn.closest('[data-legs-card]');
+        btn.closest('.leg-settle').querySelectorAll('button').forEach((b) => { b.disabled = true; });
+        try {
+            const res = await fetch(`/api/bets/${Number(card.dataset.betId)}/legs/${Number(btn.dataset.legId)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf() },
+                body: JSON.stringify({ status: btn.dataset.legSettle }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                window.location.reload();
+                return;
+            }
+            BL.toast('error', data.message || 'Could not update the selection.');
+        } catch (err) {
+            BL.toast('error', 'Could not reach the server. Please try again.');
+        }
+        btn.closest('.leg-settle').querySelectorAll('button').forEach((b) => { b.disabled = false; });
+    });
+
     const cashoutDialog = $('#cashoutDialog');
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-settle]');
@@ -482,6 +506,7 @@
         }
 
         function update() {
+            const legs = updateLegs() || [];
             const o = parseFloat(odds.value) || 0;
             const s = parseFloat(stake.value) || 0;
             const t = parseFloat(tax.value) || 0;
@@ -489,8 +514,8 @@
             const net = Math.max(0, payout - t);
             const st = status();
 
-            set('event', f('event_name').value.trim() || 'Your event');
-            set('selection', f('selection').value.trim() || 'Pick a selection');
+            set('event', f('event_name').value.trim() || (legs.length ? `${legs.length}-leg ${betType.selectedOptions[0].textContent.toLowerCase()}` : 'Your event'));
+            set('selection', f('selection').value.trim() || (legs.length ? `${legs.length} selection${legs.length === 1 ? '' : 's'}` : 'Pick a selection'));
             set('odds', o > 1 ? BL.odds(o) : '—');
             set('implied', o > 1 ? (100 / o).toFixed(1) + '%' : '—');
             set('stake', BL.money(s));
@@ -537,6 +562,127 @@
                     ? `Balance ${BL.money(balances[bookmaker.value])}`
                     : 'Where you placed the bet';
             }
+        }
+
+        /* Legs of a multiple */
+        const legsSection = form.querySelector('[data-legs]');
+        const legsList = legsSection?.querySelector('[data-legs-list]');
+        const legRules = JSON.parse(legsSection?.dataset.legRules || '{}');
+        const betType = f('bet_type');
+        const legRows = () => (legsList ? $$('[data-leg]', legsList) : []);
+        const legValue = (row, name) => row.querySelector(`[name$="[${name}]"]`)?.value.trim() || '';
+
+        function filledLegs() {
+            return legRows()
+                .map((row) => ({
+                    event: legValue(row, 'event_name'),
+                    selection: legValue(row, 'selection'),
+                    odds: parseFloat(legValue(row, 'odds')) || 0,
+                    status: legValue(row, 'status') || 'pending',
+                }))
+                .filter((l) => l.event || l.selection || l.odds);
+        }
+
+        function combinedOdds(legs) {
+            if (!legs.length || legs.some((l) => l.odds < 1.01 && l.status !== 'void')) return 0;
+            return legs.reduce((acc, l) => acc * (l.status === 'void' ? 1 : l.odds), 1);
+        }
+
+        function renumberLegs() {
+            legRows().forEach((row, i) => {
+                $('[data-leg-num]', row).textContent = i + 1;
+                row.querySelectorAll('[data-name], [name^="legs["]').forEach((input) => {
+                    const name = input.dataset.name || input.name.replace(/^legs\[\d+\]\[(\w+)\]$/, '$1');
+                    input.name = `legs[${i}][${name}]`;
+                    input.id = `leg_${i}_${name === 'event_name' ? 'event' : name}`;
+                    input.previousElementSibling?.setAttribute('for', input.id);
+                    delete input.dataset.name;
+                });
+                $('[data-leg-remove]', row).setAttribute('aria-label', `Remove selection ${i + 1}`);
+            });
+        }
+
+        function addLeg(focus = true) {
+            const tpl = legsSection.querySelector('[data-leg-template]');
+            legsList.appendChild(tpl.content.cloneNode(true));
+            renumberLegs();
+            if (focus) legRows().at(-1).querySelector('input')?.focus();
+        }
+
+        // Keep the bet's odds in step with the legs until the user types their own (e.g. a boost)
+        const legsAtLoad = filledLegs();
+        let oddsTouched = odds.value !== '' && Math.abs(combinedOdds(legsAtLoad) - parseFloat(odds.value)) > 0.001;
+        odds.addEventListener('input', () => { oddsTouched = true; });
+
+        function updateLegs() {
+            if (!legsSection) return;
+            const rule = legRules[betType.value];
+            const multi = !!rule;
+            legsSection.hidden = !multi;
+            form.querySelectorAll('[data-single-only]').forEach((el) => { el.hidden = multi; });
+            form.querySelectorAll('[data-multi-only]').forEach((el) => { el.hidden = !multi; });
+
+            const legs = multi ? filledLegs() : [];
+            f('event_name').required = !(multi && legs.length);
+            f('selection').required = !(multi && legs.length);
+            odds.required = !(multi && rule.chained && legs.length);
+
+            legRows().forEach((row) => {
+                const sel = row.querySelector('select');
+                if (sel) sel.dataset.legStatus = sel.value;
+            });
+
+            if (multi) {
+                const hint = legsSection.querySelector('[data-legs-hint]');
+                const article = /^[AEIOU]/.test(rule.label) ? 'An' : 'A';
+                const need = rule.min === rule.max ? `exactly ${rule.min}` : `at least ${rule.min}`;
+                const lost = legs.some((l) => l.status === 'lost');
+                hint.textContent = rule.chained && lost
+                    ? `A selection lost, so this ${rule.label.toLowerCase()} is lost.`
+                    : `${article} ${rule.label.toLowerCase()} has ${need} selections. Each keeps its own odds and result.`;
+                hint.classList.toggle('text-loss', rule.chained && lost);
+                $('[data-leg-add]', legsSection).hidden = rule.max !== null && legRows().length >= rule.max;
+                legRows().forEach((row) => { $('[data-leg-remove]', row).disabled = legRows().length <= 1; });
+
+                const combined = rule.chained ? combinedOdds(legs) : 0;
+                const box = legsSection.querySelector('[data-legs-combined]');
+                box.hidden = !combined;
+                $('[data-legs-odds]', box).textContent = combined ? BL.odds(combined) : '—';
+                const differs = combined && Math.abs(combined - (parseFloat(odds.value) || 0)) > 0.001;
+                if (combined && !oddsTouched && differs) {
+                    odds.value = combined.toFixed(3).replace(/\.?0+$/, '');
+                    autoTax();
+                }
+                $('[data-legs-use]', box).hidden = !(combined && Math.abs(combined - (parseFloat(odds.value) || 0)) > 0.001);
+            }
+
+            const slipLegs = document.querySelector('[data-slip-legs]');
+            if (slipLegs) {
+                slipLegs.hidden = !legs.length;
+                slipLegs.innerHTML = legs.map((l) => `<li class="${l.status}"><span>${BL.escape(l.selection || l.event || 'Selection')}</span><strong class="mono">${l.odds ? BL.escape(BL.odds(l.odds)) : '—'}</strong></li>`).join('');
+            }
+            return legs;
+        }
+
+        if (legsSection) {
+            legsSection.querySelector('[data-leg-add]').addEventListener('click', () => { addLeg(); update(); });
+            legsList.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-leg-remove]');
+                if (!btn || legRows().length <= 1) return;
+                btn.closest('[data-leg]').remove();
+                renumberLegs();
+                update();
+            });
+            legsSection.querySelector('[data-legs-use]').addEventListener('click', () => {
+                oddsTouched = false;
+                update();
+            });
+            betType.addEventListener('change', () => {
+                const rule = legRules[betType.value];
+                if (rule) {
+                    while (legRows().length < rule.min) addLeg(false);
+                }
+            });
         }
 
         tax.addEventListener('input', () => { taxTouched = true; });
