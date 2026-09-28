@@ -14,6 +14,8 @@ if (isLoggedIn() && getCurrentUser()) {
     $userModel = new User();
     $layoutBankroll = (float)$userModel->getCurrentBankroll(getCurrentUserId());
     $layoutPending = $userModel->countPendingBets(getCurrentUserId());
+    $sharedBetModel = new SharedBet();
+    $layoutInvites = $sharedBetModel->countInvitesFor($layoutUser);
 }
 
 $navItems = [
@@ -21,6 +23,7 @@ $navItems = [
         ['dashboard', '/', 'layout-dashboard', 'Dashboard'],
         ['bets', '/bets', 'receipt-text', 'Bets'],
         ['statistics', '/statistics', 'chart-column', 'Statistics'],
+        ['shared', '/shared', 'handshake', 'Shared bets'],
     ],
     'Manage' => [
         ['bookmakers', '/bookmakers', 'landmark', 'Bookmakers'],
@@ -79,6 +82,9 @@ $bodyCurrency = isset($layoutUser) ? ($layoutUser['currency'] ?: DEFAULT_CURRENC
                     <span><?php echo e($label); ?></span>
                     <?php if ($key === 'bets' && $layoutPending > 0): ?>
                     <span class="nav-count" title="<?php echo $layoutPending; ?> pending"><?php echo $layoutPending; ?></span>
+                    <?php endif; ?>
+                    <?php if ($key === 'shared' && $layoutInvites > 0): ?>
+                    <span class="nav-count accent" title="<?php echo $layoutInvites; ?> invitation<?php echo $layoutInvites === 1 ? '' : 's'; ?>"><?php echo $layoutInvites; ?></span>
                     <?php endif; ?>
                 </a>
                 <?php endforeach; ?>

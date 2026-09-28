@@ -3822,6 +3822,138 @@ fieldset.field > legend {
 }
 
 /* ---------- Responsive ---------- */
+/* ============================================
+   SHARED BETS
+   ============================================ */
+.nav-count.accent {
+    background: var(--accent);
+    color: #fff;
+}
+
+.shared-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    font-size: 11.5px;
+    font-weight: 550;
+    color: var(--accent-text);
+}
+
+.share-table tr.is-me td {
+    background: var(--accent-soft);
+}
+
+.share-table .pill {
+    height: 20px;
+    font-size: 11px;
+}
+
+.share-form {
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.share-form .grow {
+    flex: 1 1 220px;
+}
+
+.share-form .share-stake {
+    flex: 0 1 150px;
+}
+
+.invite {
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.invite .cell-title {
+    white-space: normal;
+}
+
+.invite-terms {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--text-2);
+}
+
+.invite-terms strong {
+    color: var(--text);
+    font-weight: 620;
+}
+
+.invite-actions {
+    align-self: center;
+}
+
+.invite-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    color: var(--text);
+    border-color: var(--accent-soft);
+}
+
+.invite-banner .grow {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+}
+
+.invite-banner strong {
+    font-size: 14.5px;
+    font-weight: 620;
+}
+
+.avatar-stack {
+    display: flex;
+    align-items: center;
+}
+
+.avatar-stack > span + span {
+    margin-left: -8px;
+}
+
+.avatar-stack .avatar {
+    box-shadow: 0 0 0 2px var(--surface);
+}
+
+.avatar-stack .is-invited .avatar {
+    opacity: 0.45;
+}
+
+@media (max-width: 760px) {
+    .share-table .share-pct {
+        display: none;
+    }
+
+    .share-table th,
+    .share-table td {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .share-table .avatar {
+        display: none;
+    }
+
+    .share-table td:first-child {
+        max-width: 118px;
+    }
+
+    .share-table td:first-child .cell-title,
+    .share-table td:first-child .cell-sub {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
 @media (max-width: 1280px) {
     .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .search { width: 220px; }

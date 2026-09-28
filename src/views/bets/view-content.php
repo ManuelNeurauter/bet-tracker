@@ -3,6 +3,7 @@ $profit = betProfit($bet);
 $isPending = $bet['status'] === BET_STATUS_PENDING;
 $taxAmount = (float)($bet['tax_amount'] ?? 0);
 $netPotential = max(0, (float)$bet['potential_return'] - $taxAmount);
+$isPartnerCopy = !empty($bet['shared_from']);
 $legs = $legs ?? [];
 $isMulti = isMultiLegType($bet['bet_type']);
 $chained = isChainedBetType($bet['bet_type']);
@@ -20,7 +21,9 @@ $legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
     </div>
     <div class="actions">
         <a href="/bets" class="btn btn-ghost"><?php echo icon('arrow-left'); ?> All bets</a>
+        <?php if (!$isPartnerCopy): ?>
         <a href="/bets/<?php echo (int)$bet['id']; ?>/edit" class="btn keep"><?php echo icon('pencil'); ?> Edit</a>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -33,6 +36,7 @@ $legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
                         <?php echo getStatusBadge($bet['status']); ?>
                         <span class="badge"><?php echo e(betTypeLabel($bet['bet_type'])); ?></span>
                         <?php if (!empty($bet['each_way'])): ?><span class="badge">Each way</span><?php endif; ?>
+                        <?php if ($isPartnerCopy || !empty($bet['shared_partners'])): ?><a href="#sharing" class="badge badge-accent"><?php echo icon('users', 'icon-xs'); ?> Shared</a><?php endif; ?>
                     </div>
                     <span class="odds-chip" title="Odds">@ <?php echo formatOdds($bet['odds']); ?></span>
                 </div>
@@ -42,7 +46,7 @@ $legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
             <div class="ticket-divider"></div>
             <div class="ticket-figures">
                 <div class="figure">
-                    <div class="label">Stake</div>
+                    <div class="label"><?php echo $isPartnerCopy ? 'Your stake' : 'Stake'; ?></div>
                     <div class="value"><?php echo formatCurrency($bet['stake']); ?></div>
                 </div>
                 <div class="figure">
@@ -60,9 +64,13 @@ $legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
                     <div class="value"><?php echo (float)$bet['odds'] > 0 ? round(100 / (float)$bet['odds'], 1) : 0; ?>%</div>
                 </div>
             </div>
-            <?php if ($isPending): ?>
+            <?php if ($isPending && $isPartnerCopy): ?>
             <div class="card-footer">
-                <span class="text-2" style="font-size:13px">Result in? Settle it and the bookmaker balance updates.</span>
+                <span class="text-2" style="font-size:13px"><?php echo e($bet['shared_from']); ?> settles this bet. Your part of the result lands on your Shared bets balance.</span>
+            </div>
+            <?php elseif ($isPending): ?>
+            <div class="card-footer">
+                <span class="text-2" style="font-size:13px">Result in? Settle it and the bookmaker balance updates<?php echo $shares ? ', and everyone sharing it gets their part' : ''; ?>.</span>
                 <div class="row wrap">
                     <?php include __DIR__ . '/../partials/settle-buttons.php'; ?>
                 </div>
@@ -70,7 +78,7 @@ $legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
             <?php endif; ?>
         </section>
 
-        <?php if ($legs || $isMulti): ?>
+        <?php if ($legs || ($isMulti && !$isPartnerCopy)): ?>
         <section class="card legs-card" data-legs-card data-bet-id="<?php echo (int)$bet['id']; ?>">
             <div class="card-header">
                 <h2>Selections</h2>
@@ -88,7 +96,7 @@ $legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
                         <?php if ($leg['event_name'] !== ''): ?><div class="leg-event"><?php echo e($leg['event_name']); ?></div><?php endif; ?>
                     </div>
                     <div class="leg-side">
-                        <?php if ($leg['status'] === BET_STATUS_PENDING): ?>
+                        <?php if ($leg['status'] === BET_STATUS_PENDING && !$isPartnerCopy): ?>
                         <div class="leg-settle">
                             <button type="button" class="btn btn-win btn-sm btn-icon" data-leg-settle="won" data-leg-id="<?php echo (int)$leg['id']; ?>" title="Selection won" aria-label="Selection <?php echo $i + 1; ?> won"><?php echo icon('check', 'icon-sm'); ?></button>
                             <button type="button" class="btn btn-loss btn-sm btn-icon" data-leg-settle="lost" data-leg-id="<?php echo (int)$leg['id']; ?>" title="Selection lost" aria-label="Selection <?php echo $i + 1; ?> lost"><?php echo icon('x', 'icon-sm'); ?></button>
@@ -116,11 +124,11 @@ $legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
                 <span>Combined odds <strong><?php echo formatOdds(combinedLegOdds($legs)); ?></strong></span>
                 <?php endif; ?>
             </div>
-            <?php if ($chained && $isPending && !empty($legTally[BET_STATUS_LOST])): ?>
+            <?php if ($chained && $isPending && !$isPartnerCopy && !empty($legTally[BET_STATUS_LOST])): ?>
             <div class="legs-summary text-loss">
                 <span><?php echo icon('circle-alert', 'icon-sm'); ?> A selection lost, so this <?php echo e(strtolower(betTypeLabel($bet['bet_type']))); ?> is lost. Settle it above.</span>
             </div>
-            <?php elseif ($chained && $isPending && empty($legTally[BET_STATUS_PENDING]) && empty($legTally[BET_STATUS_LOST])): ?>
+            <?php elseif ($chained && $isPending && !$isPartnerCopy && empty($legTally[BET_STATUS_PENDING]) && empty($legTally[BET_STATUS_LOST])): ?>
             <div class="legs-summary text-win">
                 <span><?php echo icon('circle-check', 'icon-sm'); ?> Every selection is in. Settle the bet above.</span>
             </div>
@@ -131,6 +139,10 @@ $legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
             </div>
             <?php endif; ?>
         </section>
+        <?php endif; ?>
+
+        <?php if ($isPartnerCopy || $shares || $isPending): ?>
+        <?php include __DIR__ . '/sharing.php'; ?>
         <?php endif; ?>
 
         <?php if ($bet['notes']): ?>
@@ -187,15 +199,21 @@ $legIcons = ['won' => 'check', 'lost' => 'x', 'void' => 'circle-slash'];
                     <?php endforeach; ?>
                 </div>
                 <?php else: ?>
+                <?php if ($isPartnerCopy): ?>
+                <p class="text-muted" style="font-size:13px">None.</p>
+                <?php else: ?>
                 <p class="text-muted" style="font-size:13px">None yet. <a href="/bets/<?php echo (int)$bet['id']; ?>/edit">Add tags or a tipster</a> to see this bet in the breakdowns.</p>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
         </section>
 
-        <form method="POST" action="/bets/<?php echo (int)$bet['id']; ?>/delete" data-confirm="This bet will be removed and its result taken off the bookmaker balance." data-confirm-title="Delete this bet?" data-confirm-button="Delete bet">
+        <?php if (!$isPartnerCopy): ?>
+        <form method="POST" action="/bets/<?php echo (int)$bet['id']; ?>/delete" data-confirm="This bet will be removed and its result taken off the bookmaker balance.<?php echo $shares ? ' Everyone you shared it with loses their copy too.' : ''; ?>" data-confirm-title="Delete this bet?" data-confirm-button="Delete bet">
             <?php echo csrfField(); ?>
             <button type="submit" class="btn btn-danger btn-block"><?php echo icon('trash-2', 'icon-sm'); ?> Delete bet</button>
         </form>
+        <?php endif; ?>
     </div>
 </div>
 

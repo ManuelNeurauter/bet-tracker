@@ -91,6 +91,8 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
             $bet = $betModel->getById($betId, $userId);
             if (!$bet) {
                 $response = ['success' => false, 'message' => 'Bet not found'];
+            } elseif (!empty($bet['shared_from'])) {
+                $response = ['success' => false, 'message' => 'Only ' . $bet['shared_from'] . ' can settle this shared bet'];
             } else {
                 $cashoutAmount = $status === BET_STATUS_CASHOUT ? $amount : null;
                 $actualReturn = calculateSettlementReturn(
@@ -142,6 +144,9 @@ elseif (($segments[1] ?? '') === 'bets' && ($segments[2] ?? '') === 'quick-settl
                         }
                     }
 
+                    $sharedBetModel = new SharedBet();
+                    $sharedBetModel->syncFromOwner($betId, $userId);
+
                     $labels = betStatuses();
                     setFlash('success', e(plainText($bet['event_name'])) . ' marked as ' . strtolower($labels[$status]) . '.');
                     $response = ['success' => true, 'message' => 'Bet updated successfully'];
@@ -163,8 +168,10 @@ elseif (($segments[1] ?? '') === 'bets' && ctype_digit($segments[2] ?? '') && ($
             $response = ['success' => false, 'message' => 'Invalid security token'];
         } elseif (!array_key_exists((string)$status, legStatuses())) {
             $response = ['success' => false, 'message' => 'Pick a valid result'];
-        } elseif (!$betModel->getById((int)$segments[2], getCurrentUserId())) {
+        } elseif (!($legBet = $betModel->getById((int)$segments[2], getCurrentUserId()))) {
             $response = ['success' => false, 'message' => 'Bet not found'];
+        } elseif (!empty($legBet['shared_from'])) {
+            $response = ['success' => false, 'message' => 'Only ' . $legBet['shared_from'] . ' can settle this shared bet'];
         } elseif ((new BetLeg())->updateStatus((int)$segments[4], (int)$segments[2], $status)) {
             $response = ['success' => true];
         } else {

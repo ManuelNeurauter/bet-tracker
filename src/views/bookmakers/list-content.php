@@ -1,5 +1,6 @@
 <?php
-$renderBookmaker = function ($bm) {
+$renderBookmaker = function ($bm) use ($bookkeeperId) {
+    $isBookkeeper = (int)$bm['id'] === $bookkeeperId;
     $stats = $bm['stats'] ?? [];
     $totalBets = (int)($stats['total_bets'] ?? 0);
     $pl = (float)($stats['profit_loss'] ?? 0);
@@ -11,7 +12,9 @@ $renderBookmaker = function ($bm) {
             <div class="grow">
                 <div class="entity-name"><?php echo e($bm['name']); ?></div>
                 <div class="entity-sub">
-                    <?php if ($host): ?>
+                    <?php if ($isBookkeeper): ?>
+                    <a href="/shared" class="inline-link">Settles your shared bets</a>
+                    <?php elseif ($host): ?>
                     <a href="<?php echo e($bm['url']); ?>" target="_blank" rel="noopener noreferrer" class="inline-link"><?php echo e($host); ?><?php echo icon('external-link', 'icon-xs'); ?></a>
                     <?php else: ?>
                     No website saved
@@ -21,6 +24,7 @@ $renderBookmaker = function ($bm) {
             <?php if ((float)$bm['tax_percentage'] > 0): ?>
             <span class="badge" title="Tax taken from winnings"><?php echo rtrim(rtrim(number_format((float)$bm['tax_percentage'], 2), '0'), '.'); ?>% tax</span>
             <?php endif; ?>
+            <?php if ($isBookkeeper): ?><span class="badge badge-accent" title="What you and the people you bet with owe each other"><?php echo icon('handshake', 'icon-xs'); ?> Bookkeeper</span><?php endif; ?>
             <?php if ($bm['is_archived']): ?><span class="badge">Archived</span><?php endif; ?>
         </div>
         <div class="entity-balance">
@@ -48,10 +52,12 @@ $renderBookmaker = function ($bm) {
             <a href="/bets?bookmaker_id=<?php echo (int)$bm['id']; ?>" class="btn btn-ghost btn-sm"><?php echo icon('receipt-text', 'icon-sm'); ?> Bets</a>
             <span class="spacer"></span>
             <a href="/bookmakers/<?php echo (int)$bm['id']; ?>/edit" class="btn btn-sm"><?php echo icon('pencil', 'icon-sm'); ?> Edit</a>
+            <?php if (!$isBookkeeper): ?>
             <form method="POST" action="/bookmakers/<?php echo (int)$bm['id']; ?>/delete" data-confirm="Its bets stay in your history without a bookmaker. This cannot be undone." data-confirm-title="Delete <?php echo e($bm['name']); ?>?" data-confirm-button="Delete bookmaker">
                 <?php echo csrfField(); ?>
                 <button type="submit" class="btn btn-ghost btn-sm btn-icon" title="Delete" aria-label="Delete <?php echo e($bm['name']); ?>"><?php echo icon('trash-2', 'icon-sm'); ?></button>
             </form>
+            <?php endif; ?>
         </div>
     </article>
     <?php return ob_get_clean();
