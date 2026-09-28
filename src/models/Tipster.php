@@ -92,6 +92,14 @@ class Tipster {
     }
     
     /**
+     * Remove tipster from bet
+     */
+    public function removeFromBet($betId, $tipsterId) {
+        $stmt = $this->db->prepare('DELETE FROM bet_tipsters WHERE bet_id = ? AND tipster_id = ?');
+        return $stmt->execute([$betId, $tipsterId]);
+    }
+
+    /**
      * Get tipsters for bet
      */
     public function getByBet($betId) {

@@ -1,34 +1,11 @@
-<div class="form-container">
-    <h1>Edit Tipster</h1>
-    
-    <form method="POST" action="/tipsters/<?php echo $tipster['id']; ?>/edit" class="form">
-        <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-        
-        <div class="form-group">
-            <label for="name">Tipster Name *</label>
-            <input type="text" id="name" name="name" value="<?php echo sanitize($tipster['name']); ?>" required>
+<div class="page-header">
+    <div class="row" style="gap:14px">
+        <?php echo avatar($tipster['name'], 'lg round'); ?>
+        <div>
+            <h1><?php echo e($tipster['name']); ?></h1>
+            <p class="subtitle"><?php echo !empty($tipster['is_active']) ? 'Active tipster' : 'Inactive tipster'; ?></p>
         </div>
-        
-        <div class="form-group">
-            <label for="source_url">Source URL / Contact Info</label>
-            <input type="text" id="source_url" name="source_url" placeholder="e.g., website, phone, Twitter handle, or leave blank" value="<?php echo sanitize($tipster['source_url'] ?? ''); ?>">
-        </div>
-        
-        <div class="form-group">
-            <label for="notes">Notes</label>
-            <textarea id="notes" name="notes" rows="4"><?php echo sanitize($tipster['notes'] ?? ''); ?></textarea>
-        </div>
-        
-        <div class="form-group">
-            <label>
-                <input type="checkbox" name="is_active" value="1" <?php echo ($tipster['is_active']) ? 'checked' : ''; ?>>
-                Active
-            </label>
-        </div>
-        
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Update Tipster</button>
-            <a href="/tipsters" class="btn btn-secondary">Cancel</a>
-        </div>
-    </form>
+    </div>
 </div>
+
+<?php include __DIR__ . '/form.php'; ?>

@@ -1,5 +1,4 @@
-<div class="error-page">
-    <h1>404 - Page Not Found</h1>
-    <p>Sorry, the page you're looking for doesn't exist.</p>
-    <a href="/" class="btn btn-primary">Go Home</a>
-</div>
+<?php
+$pageTitle = 'Page not found';
+$content_view = __DIR__ . '/404-content.php';
+include __DIR__ . '/layout.php';
